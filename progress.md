@@ -3,7 +3,7 @@
 A tap-based educational mini-game for young children that teaches **long vs. short**.
 The child rebuilds a bird's nest by tapping the correct (longer / shorter) item.
 
-- **Single self-contained file:** [`save-the-nest-lbd1.html`](save-the-nest-lbd1.html) — vanilla HTML/CSS/JS, no frameworks/build step. Just open it in a browser.
+- **Single self-contained file:** [`index.html`](index.html) — vanilla HTML/CSS/JS, no frameworks/build step. Just open it in a browser.
 - **Assets:** real art in [`assets/`](assets/) — all raster images are **WebP** (stills + animated bird WebPs; converted from PNG/GIF at quality 90, originals removed), plus SVG for the play button and transition leaves. Background music in [`audio/`](audio/).
 - **Design space:** authored at a fixed **1920×1080** stage (`#stage`) that JS scales + centers to fit any screen. A portrait "rotate your device" prompt shows on portrait screens.
 
