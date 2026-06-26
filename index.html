@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Save the Nest — Long &amp; Short</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap');
+
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    height:100%; width:100%; overflow:hidden;
+    background:radial-gradient(ellipse at 50% 38%, #2b3a1c 0%, #141b0d 70%, #0c1008 100%);
+    font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif;
+    user-select:none; -webkit-user-select:none; touch-action:manipulation;
+  }
+
+  /* ---------- Stage: authored at 1920x1080, scaled + centred to fit any screen ---------- */
+  #wrap{ position:fixed; inset:0; overflow:hidden; }
+  #stage{
+    position:absolute; left:0; top:0; width:1920px; height:1080px;
+    transform-origin:0 0; overflow:hidden;          /* JS sets scale + left/top to centre */
+    box-shadow:0 24px 70px rgba(0,0,0,.55);
+    will-change:transform; backface-visibility:hidden;
+  }
+  #stage .bg{ position:absolute; inset:0; width:1920px; height:1080px; object-fit:cover; }
+
+  /* ---------- Ambient falling leaves (z behind nest & UI) ---------- */
+  #leaves{ position:absolute; inset:0; z-index:3; pointer-events:none; overflow:hidden; }
+  .leaf{ position:absolute; top:-110px; will-change:transform;
+    animation-name:leafFall; animation-timing-function:linear; animation-iteration-count:infinite; }
+  .leaf img{ display:block; width:100%; height:auto; opacity:.92; will-change:transform;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.2));
+    animation-name:leafSway; animation-timing-function:ease-in-out;
+    animation-iteration-count:infinite; animation-direction:alternate; }
+  /* Smooth, gentle pendulum sway around a per-leaf base tilt (--rb), with
+     per-leaf drift (--sx) and rotation (--sr) amplitude. */
+  @keyframes leafFall{ from{ transform:translateY(0); } to{ transform:translateY(1300px); } }
+  @keyframes leafSway{
+    from{ transform:translateX(calc(var(--sx,20) * -1px)) rotate(calc((var(--rb,0) - var(--sr,15)) * 1deg)); }
+    to  { transform:translateX(calc(var(--sx,20) *  1px)) rotate(calc((var(--rb,0) + var(--sr,15)) * 1deg)); } }
+
+  /* ---------- Nest (centre, on the branch) ----------
+     #nest holds the persistent grow-scale (small -> full, one step per level);
+     .nest-inner does the little pop each time a piece is added. */
+  #nest{
+    position:absolute;     left: 575px; top: 419px; width:580px; height:470px;
+    z-index:4; transform-origin:50% 88%; transform:scale(.42);
+    transition:transform .9s cubic-bezier(.34,1.7,.4,1); }
+  .nest-inner{ position:absolute; inset:0; transform-origin:50% 88%; }
+  .nest-base, .nest-built, .nest-dense{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+  .nest-base{ z-index:1; }
+  .nest-built{ z-index:2; opacity:0; transition:opacity .7s ease; }   /* fuller nest, fades in each level */
+  .nest-dense{ z-index:3; opacity:0; transition:opacity .8s ease; }   /* dense nest — final level only */
+  .nest-materials{ position:absolute; inset:0; z-index:4; }
+  .nest-materials img{ position:absolute; width:120px; height:auto;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.25)); }
+  .nest-inner.pop{ animation:nestPop .7s cubic-bezier(.34,1.6,.5,1); }
+  .nest-inner.shake{ animation:nestShake .5s ease-in-out; }
+  @keyframes nestPop{ 0%{ transform:scale(.88); } 45%{ transform:scale(1.22); } 100%{ transform:scale(1); } }
+  @keyframes nestShake{
+    0%,100%{ transform:translateX(0) rotate(0); } 20%{ transform:translateX(-16px) rotate(-2deg); }
+    40%{ transform:translateX(14px) rotate(2deg); } 60%{ transform:translateX(-10px) rotate(-1deg); }
+    80%{ transform:translateX(6px); } }
+
+  /* ---------- Question banner (top, centered) ----------
+     Sized to the question-box art's natural 1200x179 aspect so it isn't squashed. */
+  #qbanner{ position:absolute; left:460px; top:34px; width:1000px; height:149px; z-index:20;
+    display:flex; align-items:center; justify-content:center; transition:opacity .35s ease; }
+  #qbanner .frame{ position:absolute; inset:0; width:100%; height:100%; }
+  #qtext{ position:relative; padding:0 90px; text-align:center;
+    font-size:44px; font-weight:800; color:#5a3b1c; letter-spacing:.3px; line-height:1; }
+  #qtext .hl{ color:#ef7d23; text-transform:uppercase; }
+  #qbanner.pop{ animation:bannerPop .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes bannerPop{ 0%{ transform:scale(.94); } 60%{ transform:scale(1.03); } 100%{ transform:scale(1); } }
+
+  /* ---------- Item panel (right) — CSS-drawn placeholder board ---------- */
+  #panel{ position:absolute; left: 1612px;
+    top: 150px;
+    width: 309px; height:780px; z-index:40;     /* right edge 1921 — 1px past the stage edge (clipped) */
+    transition:opacity .6s ease; }               /* fades out for the win celebration */
+  /* Glossy wooden/orange frame */
+  .panel-frame{ position:absolute; inset:0; border-radius:54px;
+    background:linear-gradient(180deg,#e6a85e 0%,#d4924a 50%,#bf7a31 100%);
+    box-shadow:0 16px 30px rgba(0,0,0,.4),
+               inset 0 4px 4px rgba(255,229,186,.75),
+               inset 0 -7px 9px rgba(120,68,18,.5); }
+  /* Warm cream inset with a soft recessed shadow */
+  .panel-inner{ position:absolute; inset:21px; border-radius:38px;
+    background:linear-gradient(180deg,#f8efd6 0%,#efe1bb 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),
+               inset 0 9px 20px rgba(150,105,45,.2),
+               inset 0 -9px 20px rgba(150,105,45,.12); }
+  /* Tutorial: the board springs open at the start; the twigs appear once it's open. */
+  #panel.open{ animation:panelOpen .55s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes panelOpen{ 0%{ transform:scale(.2); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+  .slot{ position:absolute; left:50%; width:1px; height:1px; }
+  #slot0{ top:27%; } #slot1{ top:72%; }
+
+  /* ---------- Draggable/tappable item ---------- */
+  .item{ position:absolute; z-index:41; cursor:pointer;
+    transform:rotate(var(--rot,0deg)); transition:filter .18s ease;
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.3));
+    will-change:transform; backface-visibility:hidden; }
+  .item img{ width:100%; height:auto; display:block; pointer-events:none; }
+  @media (hover:hover){   /* hover-capable devices only — no sticky highlight after a touch tap */
+    .item:hover{ filter:drop-shadow(0 10px 12px rgba(0,0,0,.32)) brightness(1.06); } }
+  .item.enter{ animation:itemEnter .6s cubic-bezier(.34,1.7,.5,1) both; }
+  @keyframes itemEnter{
+    0%{ transform:rotate(var(--rot,0deg)) scale(.2) translateY(-30px); opacity:0; }
+    100%{ transform:rotate(var(--rot,0deg)) scale(1) translateY(0); opacity:1; } }
+  /* Smooth, gentle entrance for the tutorial (no hard bounce) — used one by one. */
+  .item.enter-soft{ animation:itemEnterSoft .85s cubic-bezier(.2,.72,.26,1) both; }
+  @keyframes itemEnterSoft{
+    0%{ transform:rotate(var(--rot,0deg)) scale(.55) translateY(34px); opacity:0; }
+    55%{ opacity:1; }
+    100%{ transform:rotate(var(--rot,0deg)) scale(1) translateY(0); opacity:1; } }
+  .item.nudge{ animation:itemNudge .85s ease-in-out infinite; }
+  @keyframes itemNudge{
+    0%,100%{ transform:rotate(var(--rot,0deg)) scale(1); }
+    50%{ transform:rotate(var(--rot,0deg)) scale(1.14); } }
+  .item.celebrate{ animation:itemCelebrate .6s cubic-bezier(.34,1.7,.5,1); }
+  @keyframes itemCelebrate{
+    0%{ transform:rotate(var(--rot,0deg)) scale(1); }
+    35%{ transform:rotate(var(--rot,0deg)) scale(1.28); }
+    62%{ transform:rotate(var(--rot,0deg)) scale(.93); }
+    100%{ transform:rotate(var(--rot,0deg)) scale(1); } }
+  /* Wrong tap: just a shake — no glow. */
+  .item.wrong{ animation:itemWrong .6s ease-out; }
+  @keyframes itemWrong{
+    0%,100%{ transform:rotate(var(--rot,0deg)) translateX(0); }
+    15%{ transform:rotate(var(--rot,0deg)) translateX(-16px); }
+    30%{ transform:rotate(var(--rot,0deg)) translateX(14px); }
+    45%{ transform:rotate(var(--rot,0deg)) translateX(-10px); }
+    60%{ transform:rotate(var(--rot,0deg)) translateX(7px); }
+    75%{ transform:rotate(var(--rot,0deg)) translateX(-3px); } }
+
+  /* ---------- "Long"/"Short" tap label (brown text, on the panel) ---------- */
+  .len-label{ position:absolute; z-index:45; transform:translateX(-50%);
+    font-size:52px; font-weight:800; line-height:1; color:#6b4a2b;
+    text-shadow:0 2px 0 rgba(255,255,255,.55);
+    white-space:nowrap; pointer-events:none; will-change:transform, opacity;
+    animation:labelPop .42s cubic-bezier(.34,1.8,.5,1) both; }
+  @keyframes labelPop{ 0%{ transform:translateX(-50%) scale(0) translateY(14px); }
+    100%{ transform:translateX(-50%) scale(1) translateY(0); } }
+
+  /* ---------- Tutorial pacing: every animation runs a touch slower ----------
+     renderRound puts .teach on #stage during the tutorial round. */
+  #stage.teach #panel.open{ animation-duration:.8s; }
+  #stage.teach .item.enter-soft{ animation-duration:1.15s; }
+  #stage.teach .item.nudge{ animation-duration:1.15s; }
+  #stage.teach .item.celebrate{ animation-duration:.85s; }
+  #stage.teach .item.wrong{ animation-duration:.85s; }
+  #stage.teach .len-label{ animation-duration:.6s; }
+  #stage.teach #dialogue.show{ animation-duration:.8s; }
+  #stage.teach #mascot{ transition-duration:.6s; }
+  #stage.teach .nest-inner.pop{ animation-duration:1s; }
+
+  /* ---------- Soft glowing stars ---------- */
+  .star{ position:absolute; z-index:55; pointer-events:none;
+    filter:drop-shadow(0 0 6px rgba(255,224,130,.95)) drop-shadow(0 0 15px rgba(255,205,90,.5));
+    will-change:transform, opacity; }
+
+  /* ---------- Nest-building meter (cream track + growing leafy vine) ----------
+     Cream interior (like the banner/tag) so it stands out against the brown tree. */
+  #progress{ position:absolute; left:46px; top:150px; width:64px; height:780px; z-index:8;
+    border-radius:34px; padding:6px; border:5px solid #8a4f1d;
+    background:linear-gradient(180deg,#fdf4dc 0%,#edd9a6 100%);
+    box-shadow:0 8px 16px rgba(0,0,0,.5), inset 0 3px 5px rgba(150,100,40,.3),
+               inset 0 -2px 4px rgba(255,255,255,.45);
+    display:flex; flex-direction:column; justify-content:flex-end;
+    transition:opacity .6s ease; }               /* fades out for the win celebration */
+  #progress.bump{ animation:progBump .5s cubic-bezier(.34,1.7,.5,1); }
+  @keyframes progBump{ 0%{ transform:scale(1); } 42%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
+  /* Small "loading" shimmer: a faint light band drifts up the track on a loop. */
+  #progress::after{ content:''; position:absolute; left:6px; right:6px; bottom:6px;
+    height:90px; border-radius:24px; pointer-events:none; opacity:0;
+    background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
+    animation:progShimmer 2.8s ease-in-out infinite; will-change:transform, opacity; }
+  @keyframes progShimmer{
+    0%{ transform:translateY(0); opacity:0; }
+    18%{ opacity:.9; }
+    78%{ opacity:.9; }
+    100%{ transform:translateY(-658px); opacity:0; } }
+  /* Fills from the bottom up as the nest is built. */
+  .prog-fill{ position:relative; width:100%; height:0%; flex:0 0 auto; border-radius:28px; will-change:height;
+    background:linear-gradient(0deg,#1f6fc8 0%,#3aa0ee 50%,#8fd2ff 100%);
+    box-shadow:inset 0 -2px 4px rgba(255,255,255,.55), inset 0 3px 5px rgba(15,70,140,.5);
+    transition:height .8s cubic-bezier(.22,.61,.36,1); }
+  /* The little nest rides the top of the rising fill as the meter grows. */
+  .prog-nest{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%);
+    width:76px; height:auto; pointer-events:none;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
+
+  /* ---------- Background blur during character feedback ---------- */
+  /* Wrong-answer feedback shown right in the question banner. */
+  #qtext .oops{ color:#e0531f; }
+
+  #feedbackDim{ position:absolute; inset:0; z-index:35; opacity:0; pointer-events:none;
+    background:rgba(150,180,200,.16);
+    backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
+    transition:opacity .45s ease; }
+  #feedbackDim.show{ opacity:1; }
+
+  /* ---------- Mascot + speech bubble (feedback) — large, bottom-left ---------- */
+  #mascot{ position:absolute; left:4px; bottom:0; width:760px; height:auto; z-index:46;
+    opacity:0; pointer-events:none; transition:opacity .35s ease; }   /* no movement — just fades in */
+  #mascot.show{ opacity:1; }
+  .mascot-img{ width:100%; height:auto; display:block; }
+
+  #dialogue{ position:absolute; left:545px; top:150px; width:485px; height:485px; z-index:47;
+    opacity:0; transform:scale(.5); transform-origin:25% 100%; pointer-events:none;
+    will-change:transform, opacity; }
+  #dialogue.show{ animation:bubblePop .55s cubic-bezier(.2,.72,.26,1) .1s forwards; }
+  @keyframes bubblePop{ 0%{ opacity:0; transform:scale(.7) translateY(10px); }
+    100%{ opacity:1; transform:scale(1) translateY(0); } }
+  #dialogue .frame{ position:absolute; inset:0; width:100%; height:100%; }
+  #dlgtext{ position:absolute; left:13%; top: 18%; right:13%; bottom:32%;
+    display:flex; align-items:center; justify-content:center; }
+  #dlgtext .msg{ display:block; width:100%; text-align:center;
+    font-size:39px; font-weight:800; line-height:1.16; color:#2b6fb0; }
+  #dlgtext .msg.big{ font-size:52px; line-height:1.1; }   /* short tutorial instruction */
+  #dlgtext .hl{ color:#ef9a23; }
+  /* Typewriter: each letter is its own span, fading on one by one (inline, so word
+     wrapping still works and the layout doesn't jump while it types). Used by the
+     speech bubble AND the question banner's "Oops!" feedback. */
+  .tw-c{ opacity:0; transition:opacity .12s ease; }
+  .tw-c.on{ opacity:1; }
+
+  /* ---------- Overlays ---------- */
+  .overlay{ position:absolute; inset:0; z-index:60; display:flex;
+    align-items:center; justify-content:center; flex-direction:column;
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .4s ease, visibility .4s ease; }
+  .overlay.show{ opacity:1; visibility:visible; pointer-events:auto; }
+  .intro-bg{ background:radial-gradient(ellipse at center,rgba(120,190,235,.35),rgba(0,0,0,.62)); }
+  /* Win: no card, no tint — the celebration scene stays fully visible and the
+     Play Again art button sits bottom-right, clear of the nest and birds. */
+  #win{ justify-content:flex-end; align-items:flex-end; padding:0 64px 52px 0; }
+  .again-btn{ width:340px; border:none; background:none; padding:0; cursor:pointer;
+    filter:drop-shadow(0 10px 14px rgba(0,0,0,.3)); will-change:transform; }
+  .again-btn img{ width:100%; height:auto; display:block; pointer-events:none; }
+  #win.show .again-btn{ animation:cardPop .55s cubic-bezier(.34,1.6,.5,1) both,
+    againPulse 1.5s ease-in-out .7s infinite; }
+  @keyframes againPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
+  .again-btn:active{ transform:scale(.93); animation:none; }
+  .card{ background:linear-gradient(180deg,#fdf4dc,#f5e6b8); border:8px solid #c8772f;
+    border-radius:46px; padding:64px 92px; text-align:center;
+    box-shadow:0 12px 0 #8a4f1d,0 22px 50px rgba(0,0,0,.4);
+    animation:cardPop .55s cubic-bezier(.34,1.6,.5,1) both; }
+  @keyframes cardPop{ 0%{ transform:scale(.4); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+  .card h1{ font-size:104px; color:#ef7d23; line-height:1; text-shadow:4px 4px 0 #d4a85a; }
+  .card p{ font-size:42px; color:#6b4a2b; margin:18px 0 38px; font-weight:700; }
+  .big-btn{ font:inherit; font-size:48px; font-weight:800; color:#fff;
+    background:linear-gradient(180deg,#7bc043,#4f9e1f); border:none; border-radius:30px;
+    padding:20px 76px; cursor:pointer; box-shadow:0 9px 0 #3c7a16,0 14px 22px rgba(0,0,0,.3);
+    transition:transform .1s,box-shadow .1s; }
+  .big-btn:active{ transform:translateY(7px); box-shadow:0 2px 0 #3c7a16; }
+  .big-btn.orange{ background:linear-gradient(180deg,#ffae3a,#ef7d23); box-shadow:0 9px 0 #a85812,0 14px 22px rgba(0,0,0,.3); }
+  .big-btn.orange:active{ box-shadow:0 2px 0 #a85812; }
+
+  /* ---------- Title / cover screen + glossy play button ---------- */
+  .title-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .play-btn{ position:absolute; bottom:48px; left:89%; transform:translateX(-50%);
+    width: 250px; border:none; background:none; padding:0; cursor:pointer;
+    filter:drop-shadow(0 10px 14px rgba(0,0,0,.3)); will-change:transform, filter;
+    animation:playPulse 1.5s ease-in-out infinite; }
+  .play-btn img{ width:100%; height:auto; display:block; pointer-events:none; }
+  @keyframes playPulse{ 0%,100%{ transform:translateX(-50%) scale(1); }
+    50%{ transform:translateX(-50%) scale(1.055); } }
+  .play-btn:hover{ filter:drop-shadow(0 13px 18px rgba(0,0,0,.36)) brightness(1.04); }
+  .play-btn:active{ transform:translateX(-50%) scale(.93); animation:none;
+    filter:drop-shadow(0 6px 9px rgba(0,0,0,.34)); }
+
+  .confetti{ position:absolute; width:18px; height:26px; border-radius:4px; z-index:62;
+    pointer-events:none; will-change:transform, opacity; }
+
+  /* ---------- Happy bird fly-by (on a correct answer) ---------- */
+  .flybird{ position:absolute; top:220px; left:0; width:200px; z-index:57;
+    pointer-events:none; will-change:transform; }
+  .flybird .bird{ width:100%; height:auto; display:block;
+    filter:drop-shadow(0 8px 9px rgba(0,0,0,.28)); }
+  .flybird .bird.flip{ transform:scaleX(-1); }   /* mirror flying bird 1 horizontally */
+  .flybird .pew{ position:absolute; bottom:62%; left:88%; white-space:nowrap;
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:44px;
+    color:#ffe23a; -webkit-text-stroke:3px #2a1810; paint-order:stroke;
+    text-shadow:3px 4px 0 rgba(170,80,0,.55); transform:rotate(-8deg); }
+
+  /* ---------- Win celebration: the three birds circle the saved nest ---------- */
+  .winbird{ position:absolute; left:0; top:0; z-index:57; pointer-events:none; will-change:transform; }
+  .winbird img{ display:block; width:100%; height:auto;
+    filter:drop-shadow(0 8px 9px rgba(0,0,0,.28)); }
+
+  #loading{ position:absolute; inset:0; z-index:100; display:flex; align-items:center;
+    justify-content:center; background:#1d2b14; color:#cfe8b0; font-size:40px; font-weight:800; }
+  #loading.hide{ display:none; }
+
+  /* ---------- Leaf wipe (title → game transition) ---------- */
+  #hexwipe{ position:absolute; inset:0; z-index:200; overflow:hidden; display:none; }
+  #hexwipe.run{ display:block; pointer-events:auto; }   /* swallow taps mid-wipe */
+  #hexwipe .leafbg{ position:absolute; inset:0; opacity:0; will-change:opacity;
+    transition:opacity .35s ease;
+    background:radial-gradient(circle at 50% 42%, #7bbf16 0%, #4f9a01 55%, #2f6c00 100%); }
+  .leafcell{ position:absolute; transform:scale(0); will-change:transform;
+    transform-origin:50% 50%; filter:drop-shadow(0 6px 8px rgba(20,50,0,.35)); }
+  .leafcell img{ width:100%; height:100%; display:block; }
+
+  /* ---------- Portrait "rotate your device" prompt (landscape game) ---------- */
+  #rotate{ position:fixed; inset:0; z-index:99999; display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:30px;
+    background:radial-gradient(ellipse at 50% 40%, #2f3f20 0%, #141b0d 70%, #0c1008 100%);
+    color:#fdf4dc; text-align:center; padding:30px; }
+  #rotate.show{ display:flex; }
+  #rotate .ricon{ width:120px; height:120px; transform-origin:50% 50%;
+    animation:rotateHint 2.4s ease-in-out infinite; }
+  #rotate .ricon svg{ width:100%; height:100%; display:block; }
+  @keyframes rotateHint{ 0%,38%{ transform:rotate(0deg); } 62%,100%{ transform:rotate(-90deg); } }
+  #rotate .rtext{ font-size:36px; font-weight:800; line-height:1.3;
+    text-shadow:0 2px 0 rgba(0,0,0,.3); max-width:80vw; }
+
+  /* Accessibility: tone down motion for users who ask for it. The game logic
+     uses timers (not animation events), so everything still works. */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:.001ms !important; animation-iteration-count:1 !important;
+      transition-duration:.05ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <img class="bg" src="assets/background.webp" alt="">
+
+    <!-- Ambient falling leaves (behind all gameplay) -->
+    <div id="leaves" aria-hidden="true"></div>
+
+    <!-- Nest -->
+    <div id="nest">
+      <div class="nest-inner">
+        <img class="nest-base"  src="assets/small nest.webp" alt="">
+        <img class="nest-built" src="assets/big nest.webp"   alt="">
+        <img class="nest-dense" src="assets/dens nest.webp"  alt="">
+        <div class="nest-materials"></div>
+      </div>
+    </div>
+
+    <!-- Question banner (top-left) -->
+    <div id="qbanner">
+      <img class="frame" src="assets/question box.webp" alt="">
+      <div id="qtext"></div>
+    </div>
+
+    <!-- Item panel (right) — CSS-drawn placeholder -->
+    <div id="panel">
+      <div class="panel-frame"><div class="panel-inner"></div></div>
+      <div class="slot" id="slot0"></div>
+      <div class="slot" id="slot1"></div>
+    </div>
+
+    <!-- Nest-building meter: cream track + green vine, with the "Nest" sign
+         riding the leading edge as it fills. -->
+    <div id="progress">
+      <div class="prog-fill"><img class="prog-nest" src="assets/dens nest.webp" alt="Nest"></div>
+    </div>
+
+    <!-- Background blur shown while the character is speaking -->
+    <div id="feedbackDim"></div>
+
+    <!-- Mascot + speech bubble -->
+    <div id="mascot"><img class="mascot-img" src="assets/character.webp" alt=""></div>
+    <div id="dialogue">
+      <img class="frame" src="assets/character dialouge box.webp" alt="">
+      <div id="dlgtext"></div>
+    </div>
+
+    <!-- Intro / title (cover) screen -->
+    <div class="overlay show" id="intro">
+      <img class="title-img" src="assets/tittle screen.webp" alt="Save the Nest">
+      <button id="playBtn" class="play-btn" type="button" aria-label="Play">
+        <img src="assets/play button.svg" alt="Play">
+      </button>
+    </div>
+
+    <!-- Tutorial complete → start the real game -->
+    <div class="overlay intro-bg" id="ready">
+      <div class="card">
+        <h1>Great job! 🌟</h1>
+        <p>You learned long and short!<br>Now let's build the nest.</p>
+        <button class="big-btn" id="startBtn" type="button">Start!</button>
+      </div>
+    </div>
+
+    <!-- Win: the celebration scene stays visible — just the Play Again button -->
+    <div class="overlay" id="win">
+      <button id="againBtn" class="again-btn" type="button" aria-label="Play Again">
+        <img src="assets/play again.svg" alt="Play Again">
+      </button>
+    </div>
+
+    <!-- Leaf wipe between the title and the game (leaves filled in by JS) -->
+    <div id="hexwipe"><div class="leafbg"></div></div>
+
+    <div id="loading">Getting the nest ready…</div>
+  </div>
+</div>
+
+<!-- Shown on portrait screens — this is a landscape game -->
+<div id="rotate">
+  <div class="ricon">
+    <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="44" y="14" width="32" height="92" rx="8" fill="none" stroke="#fdf4dc" stroke-width="6"/>
+      <line x1="44" y1="26" x2="76" y2="26" stroke="#fdf4dc" stroke-width="4"/>
+      <line x1="44" y1="94" x2="76" y2="94" stroke="#fdf4dc" stroke-width="4"/>
+      <path d="M16 60 a44 44 0 0 1 14 -32" fill="none" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/>
+      <path d="M30 16 l2 14 l-14 0 z" fill="#ffd23f"/>
+    </svg>
+  </div>
+  <div class="rtext">Please rotate your device<br>to play! 🌿</div>
+</div>
+
+<script>
+'use strict';
+
+/* =================== Fit stage to viewport ===================
+   Scales the fixed 1920x1080 stage to fit ANY screen (preserving aspect ratio,
+   letterboxed). GPU-accelerated, viewport-aware, and debounced to one update
+   per frame so resizing/rotating stays smooth. */
+var _fitRAF=0;
+function fit(){
+  if(_fitRAF) return;
+  _fitRAF=requestAnimationFrame(function(){
+    _fitRAF=0;
+    var vv=window.visualViewport;
+    var vw=(vv&&vv.width)||window.innerWidth;
+    var vh=(vv&&vv.height)||window.innerHeight;
+    var s=Math.min(vw/1920, vh/1080);
+    var el=document.getElementById('stage');
+    el.style.transform='translateZ(0) scale('+s+')';
+    el.style.left=((vw-1920*s)/2)+'px';            // centre exactly at any size
+    el.style.top =((vh-1080*s)/2)+'px';
+    // Landscape game: nudge the player to rotate when the screen is portrait.
+    var rot=document.getElementById('rotate');
+    if(rot) rot.classList.toggle('show', vh > vw*1.05);
+  });
+}
+window.addEventListener('resize', fit, {passive:true});
+window.addEventListener('orientationchange', fit);
+if(window.visualViewport) window.visualViewport.addEventListener('resize', fit, {passive:true});
+fit();
+
+/* =================== Ambient falling leaves (real leaf art) =================== */
+function spawnLeaves(n){
+  var box=document.getElementById('leaves');
+  if(!box) return;
+  for(var i=0;i<n;i++){
+    var leaf=document.createElement('div'); leaf.className='leaf';
+    var size=24+Math.random()*30;                  // 24–54 px (short leaf only)
+    var fall=12+Math.random()*10;                  // 12–22 s — slow, graceful descent
+    var sway=3.2+Math.random()*3.2;                // 3.2–6.4 s — soft wobble
+    leaf.style.width=size.toFixed(0)+'px';
+    leaf.style.left=(Math.random()*1920)+'px';
+    leaf.style.setProperty('--sx',(12+Math.random()*18).toFixed(1));  // drift amplitude (px)
+    leaf.style.setProperty('--sr',(8+Math.random()*12).toFixed(1));   // sway tilt (deg)
+    leaf.style.setProperty('--rb',(-50+Math.random()*100).toFixed(1));// resting tilt (deg)
+    leaf.style.animationDuration=fall+'s';
+    leaf.style.animationDelay=(-Math.random()*fall)+'s';   // staggered, already mid-fall
+    var img=document.createElement('img');
+    img.src='assets/short leaf.webp'; img.alt='';
+    img.style.animationDuration=sway+'s';
+    img.style.animationDelay=(-Math.random()*sway)+'s';
+    leaf.appendChild(img);
+    box.appendChild(leaf);
+  }
+}
+spawnLeaves(16);
+
+/* =================== Audio =================== */
+var soundOn=true;
+
+// Looping background music (starts on the first user gesture — browsers block
+// autoplay before that).
+var bgm=new Audio('audio/Background music.mp3');
+bgm.loop=true; bgm.volume=0.15; bgm.preload='auto';
+function startMusic(){ if(soundOn){ var p=bgm.play(); if(p&&p.catch) p.catch(function(){}); } }
+
+// WebAudio synth for the little sound effects.
+var audioCtx=null, audioOk=true;
+function ac(){ if(!audioOk) return null; try{
+  if(!audioCtx){ var AC=window.AudioContext||window.webkitAudioContext; if(!AC){audioOk=false;return null;} audioCtx=new AC(); }
+  if(audioCtx.state==='suspended') audioCtx.resume(); return audioCtx;
+}catch(e){ audioOk=false; return null; } }
+function tone(f,d,type,vol,when){ if(!soundOn) return; type=type||'sine'; vol=vol||.2; when=when||0;
+  var ctx=ac(); if(!ctx) return; try{
+    var t=ctx.currentTime+when, o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(vol,t+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+d+.05);
+  }catch(e){} }
+var sfx={
+  tap:    function(){ tone(620,.08,'square',.12); },
+  correct:function(){ tone(523,.12,'sine',.2,0); tone(659,.12,'sine',.2,.1); tone(784,.2,'sine',.22,.2); tone(1047,.3,'sine',.2,.32); },
+  wrong:  function(){ tone(220,.15,'sawtooth',.15,0); tone(180,.2,'sawtooth',.15,.1); },
+  star:   function(){ tone(880,.1,'sine',.16,0); tone(1320,.18,'sine',.16,.08); },
+  win:    function(){ [523,659,784,1047,784,1047,1319].forEach(function(n,i){ tone(n,.25,'triangle',.22,i*.15); }); },
+  nudge:  function(){ tone(880,.08,'sine',.1); },
+  pew:    function(){ tone(1500,.07,'square',.1,0); tone(1850,.07,'square',.1,.13); },
+  click:  function(){ tone(740,.05,'square',.16,0); tone(1180,.1,'sine',.15,.05); }
+};
+
+/* A cheerful bird (real GIF art) that glides slowly across on a correct answer.
+   It cycles through the three birds so a DIFFERENT one appears each time. */
+var BIRD_GIFS = ['assets/flying bird 1.webp', 'assets/flying bird 2.webp', 'assets/flying bird 3.webp'];
+var birdIdx = Math.floor(Math.random()*BIRD_GIFS.length);   // random start, then cycle
+var flybirdEndsAt = 0;   // when the latest pew-pew fly-by will have left the screen
+function flyBird(){
+  var bird=document.createElement('div'); bird.className='flybird';
+  var i=birdIdx % BIRD_GIFS.length; var src=BIRD_GIFS[i]; birdIdx++;
+  var flip = (i===0) ? ' flip' : '';   // flying bird 1 faces left — mirror it to face the flight direction
+  bird.innerHTML='<span class="pew">pew pew!</span><img class="bird'+flip+'" src="'+src+'" alt="">';
+  stage.appendChild(bird);
+  sfx.pew();
+  bird.animate([
+    {transform:'translate(-340px,0) rotate(-3deg)'},
+    {transform:'translate(530px,-46px) rotate(4deg)',  offset:.33},
+    {transform:'translate(1400px,14px) rotate(-2deg)', offset:.66},
+    {transform:'translate(2280px,-26px) rotate(3deg)'}
+  ], {duration:5200, easing:'linear', fill:'forwards'});   // slow, steady glide
+  flybirdEndsAt = Date.now()+5300;
+  setTimeout(function(){ bird.remove(); }, 5300);
+}
+
+/* Win celebration: all three birds circle the saved nest — a slow elliptical
+   orbit built from densely sampled keyframes so it's perfectly smooth. Each
+   bird flies on its own phase and pace, turns to face the way it's flying
+   (the one-segment scaleX blend reads as a gentle mid-air turn), and drifts
+   slightly closer on the front of the loop for a hint of depth. */
+var winBirds=[];
+function spawnWinBirds(){
+  clearWinBirds();
+  var cx=865, cy=590, Rx=380, Ry=300;   // ellipse centred on the full nest
+  var N=72;                              // samples per lap
+  BIRD_GIFS.forEach(function(src,idx){
+    var w=[260,245,255][idx], lap=[14000,15500,17000][idx];
+    var phase=idx*Math.PI*2/3;           // start spread evenly around the nest
+    var d=document.createElement('div'); d.className='winbird';
+    d.style.width=w+'px';
+    d.style.marginLeft=(-w/2)+'px'; d.style.marginTop=(-w*0.38)+'px';  // centre on the path
+    d.innerHTML='<img src="'+src+'" alt="">';
+    stage.appendChild(d); winBirds.push(d);
+    var frames=[];
+    for(var k=0;k<=N;k++){
+      var a=phase + (k/N)*Math.PI*2;
+      var x=cx+Math.cos(a)*Rx, y=cy+Math.sin(a)*Ry;
+      var faceRight = -Math.sin(a)>=0 ? 1 : -1;        // sign of x-velocity on the path
+      var fx = (idx===0 ? -faceRight : faceRight);     // bird 1's art faces left natively
+      var depth=0.98+0.08*Math.sin(a);
+      frames.push({transform:'translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px) '+
+        'scale('+(fx*depth).toFixed(3)+','+depth.toFixed(3)+')'});
+    }
+    d.animate(frames, {duration:lap, iterations:Infinity, easing:'linear'});
+    d.animate([{opacity:0},{opacity:1}], {duration:600, easing:'ease-out', fill:'both'});  // soft arrival
+  });
+}
+function clearWinBirds(){ winBirds.forEach(function(b){ b.remove(); }); winBirds=[]; }
+
+/* =================== Assets & levels =================== */
+var ART = {
+  twigLong:'assets/long twig.webp',
+  twigShort:'assets/small twig.webp',
+  featherLong:'assets/long feather 2.webp',   // blue feather
+  featherShort:'assets/small feather.webp',   // red feather
+  leafLong:'assets/Long leaf.webp',
+  leafShort:'assets/short leaf.webp'
+};
+
+// Each level = one round. items[0]=top slot, items[1]=bottom slot (item order
+// is shuffled per play so the answer isn't positional). Levels run in order.
+// `teach:true` -> the tutorial round (a wrong tap doesn't fail; the elephant
+// explains and lets the child try again).
+var LEVELS = [
+  // Level 1 — Tutorial: long & short twig, two guided steps (tap long, tap
+  // short). Once both are done the child knows long & short — the twigs fly
+  // into the nest and the real game begins (no third "tap the longer" screen).
+  // Item sizes are tuned to the 309x780 board (slots centre them within it).
+  { id:'tutorial', teach:true,
+    items:[
+      {src:ART.twigShort,length:'short', noun:'twig', w:185, rot:30},
+      {src:ART.twigLong, length:'long',  noun:'twig', w:290, rot:74} ],
+    steps:[
+      { instr:'Tap the <span class="hl">long</span> twig.',  bubble:'Tap the<br><span class="hl">long</span> twig.', need:'long'  },
+      { instr:'Tap the <span class="hl">short</span> twig.', bubble:'Tap the<br><span class="hl">short</span> twig.', need:'short' }
+    ] },
+  // Difficulty ramps: clear length differences first, subtler ones later.
+  // `h` stretches the art's length only (feather art is vertical), keeping the
+  // item's width — thickness — the same, so LENGTH is the only cue.
+  // Level 2 — long (blue) feather vs short (red) feather (clear difference)
+  { id:'feather-feather', ask:'long', items:[
+      {src:ART.featherLong,  length:'long',  noun:'feather', w:255, rot:12},
+      {src:ART.featherShort, length:'short', noun:'feather', w:190, rot:-10} ] },
+  // Level 3 — long twig vs short feather (clear difference; child taps the SHORT one)
+  { id:'twig-feather', ask:'short', items:[
+      {src:ART.twigLong,     length:'long',  noun:'twig',    w:290, rot:74},
+      {src:ART.featherShort, length:'short', noun:'feather', w:185, rot:-10} ] },
+  // Level 4 — long feather vs short leaf (subtler: the leaf is fatter but shorter)
+  { id:'feather-leaf', ask:'long', items:[
+      {src:ART.featherLong, length:'long',  noun:'feather', w:270, rot:8},
+      {src:ART.leafShort,   length:'short', noun:'leaf',    w:175, rot:-6} ] },
+  // Level 5 — long leaf vs short leaf (very small difference; child taps the SHORT one)
+  { id:'leaf-leaf', ask:'short', items:[
+      {src:ART.leafLong,  length:'long',  noun:'leaf', w:225, rot:6},
+      {src:ART.leafShort, length:'short', noun:'leaf', w:200, rot:-6} ] },
+  // Level 6 — long feather vs short twig. Fixed layout: the twig is hand-tuned
+  // (pinned at 1721,313), so the feather always takes the bottom slot.
+  { id:'feather-twig', ask:'long', fixed:true, items:[
+      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1721, top:313},
+      {src:ART.featherLong, length:'long',  noun:'feather', w:270, h:245, rot:8} ] }
+];
+
+var IDLE_MS = 8000, NUDGE_AFTER_WRONG = 4000;
+var TYPE_MS = 60;       // typewriter speed per letter (slow, so kids can read)
+var TEACH_TYPE_MS = 70; // tutorial types a touch slower still
+var READ_PAUSE = 1600;  // pause after a line finishes typing, before anything advances
+
+/* =================== DOM =================== */
+var stage    = document.getElementById('stage');
+var nestEl   = document.getElementById('nest');
+var nestInner= nestEl.querySelector('.nest-inner');
+var nestBuilt= nestEl.querySelector('.nest-built');
+var nestDense= nestEl.querySelector('.nest-dense');
+var materials= nestEl.querySelector('.nest-materials');
+var NEST_MIN = 0.42;   // nest scale at the start (small) -> grows to 1.0 (full)
+var qbanner  = document.getElementById('qbanner');
+var qtext    = document.getElementById('qtext');
+var slot0    = document.getElementById('slot0');
+var slot1    = document.getElementById('slot1');
+var panelEl  = document.getElementById('panel');
+// Drop the open-animation class when it finishes — its `both` fill would
+// otherwise pin the panel's opacity and block the win-screen fade-out.
+panelEl.addEventListener('animationend', function(){ panelEl.classList.remove('open'); });
+var progFill = document.querySelector('.prog-fill');
+var progressEl = document.getElementById('progress');
+var mascot   = document.getElementById('mascot');
+var dialogue = document.getElementById('dialogue');
+var dlgtext  = document.getElementById('dlgtext');
+var dimEl    = document.getElementById('feedbackDim');
+var introEl  = document.getElementById('intro');
+var readyEl  = document.getElementById('ready');
+var winEl    = document.getElementById('win');
+var loadingEl= document.getElementById('loading');
+
+/* =================== State =================== */
+var levels=[], order=[], cursor=0, roundLocked=false, activeItems=[], idleTimer=null, starSeq=0;
+var built=0, totalBuild=0;   // rounds completed / total rounds (drives nest fill)
+var teachStep=0;             // tutorial: which guided step (1..steps.length)
+var revealTimers=[];         // pending "appear one by one" timeouts (cancelled per round)
+var typeTimer=null;          // speech-bubble typewriter timer
+
+function rand(a,b){ return a+Math.random()*(b-a); }
+function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+/* =================== Asset gating =================== */
+function imgExists(src){ return new Promise(function(res){ var im=new Image();
+  im.onload=function(){res(true);}; im.onerror=function(){res(false);}; im.src=src; }); }
+
+function resolveLevels(){
+  var srcs={}; LEVELS.forEach(function(l){ l.items.forEach(function(i){ srcs[i.src]=1; }); });
+  var keys=Object.keys(srcs);
+  return Promise.all(keys.map(function(s){ return imgExists(s).then(function(ok){ return [s,ok]; }); }))
+    .then(function(pairs){
+      var have={}; pairs.forEach(function(p){ have[p[0]]=p[1]; });
+      var out=[];
+      LEVELS.forEach(function(l){
+        var missing=l.items.filter(function(i){ return !have[i.src]; });
+        if(missing.length===0) out.push(l);
+        else console.info('[Save the Nest] skip "'+l.id+'" — missing:', missing.map(function(m){return m.src;}));
+      });
+      return out;
+    });
+}
+
+/* =================== Round =================== */
+function curLevel(){ return levels[order[cursor]]; }
+
+function buildPrompt(ask){
+  var w = ask==='short' ? 'short' : 'long';
+  return 'Tap the <span class="hl">'+w+'</span> item!';
+}
+
+function clearItems(){
+  activeItems.forEach(function(el){ el.remove(); }); activeItems=[];
+  var labels=document.querySelectorAll('.len-label');
+  for(var i=0;i<labels.length;i++) labels[i].remove();
+}
+
+function slotCentre(slotEl){
+  // slot is positioned with left:50% (of panel) and top:%; compute in design px.
+  var panel=document.getElementById('panel');
+  return { x: panel.offsetLeft + slotEl.offsetLeft, y: panel.offsetTop + slotEl.offsetTop };
+}
+
+function makeItem(def, slotEl){
+  var el=document.createElement('div');
+  el.className='item';
+  el.style.width=def.w+'px';
+  el.style.setProperty('--rot', (def.rot||0)+'deg');
+  el.dataset.length=def.length;
+  var img=document.createElement('img');
+  img.src=def.src; img.alt=def.noun;
+  if(def.h) img.style.height=def.h+'px';   // stretch length only — the width (thickness) stays
+  el.appendChild(img);
+  el.style.visibility='hidden';        // hide until positioned (no flash at 0,0)
+  stage.appendChild(el);
+  el._def=def;
+
+  function place(){
+    var c=slotCentre(slotEl);
+    el.style.left=(def.left!=null ? def.left : c.x - el.offsetWidth/2)+'px';
+    el.style.top =(def.top!=null ? def.top : c.y - el.offsetHeight/2)+'px';
+    el.style.visibility='';
+  }
+  if(img.complete && img.naturalWidth) place(); else img.onload=place;
+
+  attachInput(el);
+  return el;
+}
+
+// slow=true right after the transition → the tutorial reveals one by one, gently.
+function renderRound(slow){
+  clearReveal(); clearItems(); hideMascot(); clearBannerOops(); roundLocked=false;
+  var lvl=curLevel();
+  teachStep = lvl.teach ? 1 : 0;
+  stage.classList.toggle('teach', !!lvl.teach);         // tutorial: slower animation pacing
+  progressEl.style.display = lvl.teach ? 'none' : '';   // meter only during the real game
+
+  // Tutorial and `fixed` levels keep their defined layout; other play rounds
+  // shuffle so the answer isn't positional.
+  var pair = (lvl.teach || lvl.fixed) ? lvl.items : shuffle(lvl.items);
+  var a=makeItem(pair[0], slot0), b=makeItem(pair[1], slot1);
+  activeItems=[a,b];
+
+  // Pop an item in after `ms`. animation fill:both holds it hidden until then.
+  // While it waits it must not be tappable (it's invisible), and the inline
+  // animation-delay must be cleared once it has entered — left in place it would
+  // also delay every later animation on the item (wrong/celebrate/nudge).
+  function enterAt(el, ms, cls){
+    el.classList.remove('enter','enter-soft'); void el.offsetWidth;
+    el.style.pointerEvents='none';
+    el.style.animationDelay=(ms/1000)+'s'; el.classList.add(cls||'enter');
+    var cleaned=false, fallback;
+    function entered(e){
+      if(e && e.target!==el) return;
+      if(cleaned) return; cleaned=true;
+      clearTimeout(fallback);
+      el.removeEventListener('animationend', entered);
+      el.removeEventListener('animationcancel', entered);
+      el.classList.remove('enter','enter-soft');
+      el.style.animationDelay='';
+      if(!roundLocked) el.style.pointerEvents='';
+    }
+    // The entrance can be cut short when another animation class (e.g. the
+    // tutorial pulse) replaces it mid-flight — that fires `animationcancel`,
+    // not `animationend`. The timer is a last resort so the item can never
+    // get stuck invisible or untappable.
+    el.addEventListener('animationend', entered);
+    el.addEventListener('animationcancel', entered);
+    fallback=setTimeout(entered, ms+1600);   // > the slowest (tutorial 1.15s) entrance
+  }
+
+  if(lvl.teach){
+    qbanner.style.opacity='0';     // instruction lives in the elephant's speech bubble
+    panelEl.style.opacity='0';     // board stays hidden for the greeting…
+    activeItems.forEach(function(el){ el.style.opacity='0'; el.style.pointerEvents='none'; }); // …twigs too
+    // Opening beat: the elephant appears ALONE and greets — no board, no twigs.
+    // Only after the line is read does the board spring open, the twigs appear
+    // one by one, and the first instruction follows.
+    var dChar = slow ? 850 : 160;
+    revealTimers.push(setTimeout(function(){ mascot.classList.add('show'); }, dChar));
+    revealTimers.push(setTimeout(function(){
+      guide('Let us start fixing the nest!', false, function(){
+        revealTimers.push(setTimeout(function(){
+          panelEl.style.opacity='';   // hand the opacity back to the open animation
+          panelEl.classList.remove('open'); void panelEl.offsetWidth; panelEl.classList.add('open');
+          a.style.opacity=''; b.style.opacity='';   // entrance animations take over (held at 0%)
+          enterAt(a, 700, 'enter-soft'); enterAt(b, 1450, 'enter-soft');
+          revealTimers.push(setTimeout(function(){
+            guide(lvl.steps[0].bubble, true, function(){ revealTimers.push(setTimeout(pulseCorrect, 350)); });
+          }, 2650));   // bubble comes after both twigs have appeared
+        }, READ_PAUSE));
+      });
+    }, dChar + (slow?550:350)));
+  } else {
+    panelEl.style.opacity='';      // the board is always visible in play rounds
+    qtext.innerHTML = lvl.prompt || buildPrompt(lvl.ask);
+    var pop=function(){ qbanner.style.opacity='1';
+      qbanner.classList.remove('pop'); void qbanner.offsetWidth; qbanner.classList.add('pop'); };
+    if(slow){ qbanner.style.opacity='0'; revealTimers.push(setTimeout(pop, 640)); } else { pop(); }
+    var base = slow ? 700 : 0, g = slow ? 430 : 100;
+    enterAt(a, base, 'enter'); enterAt(b, base+g, 'enter');
+  }
+  armIdle();
+}
+function clearReveal(){ for(var i=0;i<revealTimers.length;i++) clearTimeout(revealTimers[i]); revealTimers=[]; }
+// Pulse ONLY the twig the current tutorial step is asking for (no glow).
+function pulseCorrect(){
+  clearPulse();
+  var lvl=curLevel(); if(!lvl.teach) return;
+  var step=lvl.steps[teachStep-1]; if(!step) return;
+  activeItems.forEach(function(el){ if(el._def.length===step.need) el.classList.add('nudge'); });
+}
+function clearPulse(){ activeItems.forEach(function(el){ el.classList.remove('nudge'); }); }
+
+/* =================== Input (tap) ===================
+   Taps fire on the standard `click`/`touchend` events — these reach the item
+   reliably across mice, trackpads and touchscreens (the old pointerup +
+   setPointerCapture path could silently miss on some devices). The child <img>
+   has pointer-events:none, so the tap always lands on the .item div. */
+function attachInput(item){
+  var fired=false;
+  function tap(e){
+    if(roundLocked) return;
+    if(e && e.preventDefault) e.preventDefault();
+    if(fired) return;                 // ignore the click that follows a touchend
+    fired=true; setTimeout(function(){ fired=false; }, 350);
+    ac(); stopIdle(); item.classList.remove('nudge');
+    handleTap(item);
+  }
+  // Resume audio as early as possible (first contact), then handle the tap.
+  item.addEventListener('pointerdown', function(){ if(!roundLocked) ac(); });
+  item.addEventListener('click', tap);
+  item.addEventListener('touchend', tap, {passive:false});
+}
+
+function enableItems(on){ activeItems.forEach(function(el){ el.style.pointerEvents = on?'':'none'; }); }
+
+// Wrong tap: shake the item + error sound. No glow.
+function wrongFeedback(item){
+  sfx.wrong();
+  item.classList.remove('wrong'); void item.offsetWidth; item.classList.add('wrong');
+  if(item._wrongT) clearTimeout(item._wrongT);
+  item._wrongT=setTimeout(function(){ item.classList.remove('wrong'); item._wrongT=null; }, 900);   // > the slower tutorial shake
+}
+// Wrong tap (play levels): TYPE "Oops! That is not right." into the question
+// banner (no pop — just a typewriter text change), hold, then restore the prompt.
+var bannerRestoreT=null, oopsToken=0;
+function setPrompt(){ var lvl=curLevel(); qtext.innerHTML = (lvl&&(lvl.prompt||buildPrompt(lvl.ask)))||''; }
+function bannerOops(){
+  if(bannerRestoreT){ clearTimeout(bannerRestoreT); bannerRestoreT=null; }
+  var my=++oopsToken;
+  typeText(qtext, '<span class="oops">Oops!</span> That is not right.', TYPE_MS, function(){
+    if(my!==oopsToken) return;   // superseded by a correct tap or new round
+    bannerRestoreT=setTimeout(function(){ if(my===oopsToken) setPrompt(); bannerRestoreT=null; }, READ_PAUSE);
+  });
+}
+// Cancel a pending/typing "Oops!" and let the caller set the prompt itself.
+function clearBannerOops(){
+  oopsToken++;
+  if(bannerRestoreT){ clearTimeout(bannerRestoreT); bannerRestoreT=null; }
+  if(typeTimer){ clearTimeout(typeTimer); typeTimer=null; }
+}
+
+// Shared happy reward when a twig is the right answer (star + bounce).
+function rewardTwig(item){
+  var cx=parseFloat(item.style.left)+item.offsetWidth/2;
+  var cy=parseFloat(item.style.top)+item.offsetHeight/2;
+  sfx.star(); popStar(cx, cy); sfx.correct();
+  item.classList.remove('wrong','celebrate'); void item.offsetWidth; item.classList.add('celebrate');
+}
+
+function handleTap(item){
+  if(roundLocked) return;
+  var lvl=curLevel();
+
+  // ---------------- Guided tutorial (2 steps) ----------------
+  if(lvl.teach){
+    var step=lvl.steps[teachStep-1];
+    // Wrong: shake + error sound, and pulse the correct twig to guide.
+    // Pending reveal timers are kept — cancelling them here would also cancel
+    // the instruction bubble if the child taps before it has appeared.
+    if(item._def.length !== step.need){ wrongFeedback(item); armIdle(NUDGE_AFTER_WRONG); pulseCorrect(); return; }
+
+    roundLocked=true; enableItems(false);
+    activeItems.forEach(function(el){ el.classList.remove('nudge'); });
+    clearReveal(); clearPulse(); stopIdle();
+    rewardTwig(item);
+    var isLast = teachStep>=lvl.steps.length;
+    labelTwig(item);                 // the tapped twig earns its label (appears on tap only)
+    var word = item._def.length==='short' ? 'shorter' : 'longer';
+    // Elephant cheers — the line types out, then we wait for it to be READ before moving on.
+    var advance=function(){
+      if(isLast){
+        // The child knows long & short now: the learned twigs fly off the board
+        // and settle into the nest — it grows a little — the elephant hands the
+        // game over, THEN the leaf wipe carries them into the real levels.
+        clearLabels();
+        flyPairToNest(item, function(){
+          nestEl.style.transform='scale(.52)';   // the twigs made the nest bigger
+          guide('Now, it is your turn!', true, function(){
+            setTimeout(function(){ leafTransition(function(){ hideMascot(); nextRound(true); }); }, READ_PAUSE);
+          });
+        });
+      } else {
+        teachStep++;   // earned labels stay — each twig keeps the label from its own tap
+        // next instruction types out, then its correct twig lights up
+        guide(lvl.steps[teachStep-1].bubble, true, function(){ revealTimers.push(setTimeout(pulseCorrect, 350)); });
+        roundLocked=false; enableItems(true); armIdle();
+      }
+    };
+    guide('Correct! This twig is <span class="hl">'+word+'</span> than the other one.', false,
+      function(){ setTimeout(advance, READ_PAUSE); });   // finished typing → read pause → advance
+    return;
+  }
+
+  // ---------------- Normal play rounds ----------------
+  if(item._def.length === lvl.ask){
+    // Correct: star pop + the pew-pew fly-by, and ONLY the correct item glides
+    // into the nest (the other stays on the board until the next round)
+    // — NO character dialogue, and NO long/short label (those are tutorial-only).
+    roundLocked=true; enableItems(false);
+    activeItems.forEach(function(el){ el.classList.remove('nudge'); });
+    stopIdle();
+    clearBannerOops(); setPrompt();   // clear any lingering "Oops!" from a prior wrong tap
+    var cx=parseFloat(item.style.left)+item.offsetWidth/2;
+    var cy=parseFloat(item.style.top)+item.offsetHeight/2;
+    sfx.star(); popStar(cx,cy); sfx.correct();
+    flyBird();
+    flyToNest(item, 150, function(){
+      addMaterial(item._def);
+      advanceBuild();           // nest grows + meter fills as the piece lands
+    });
+    setTimeout(nextRound, 2150);
+  } else {
+    // Wrong: shake + "Oops! That is not right." in the banner, then try again.
+    wrongFeedback(item); bannerOops(); armIdle(NUDGE_AFTER_WRONG);   // nudge sooner after a mistake
+  }
+}
+
+/* =================== Label =================== */
+function clearLabels(){
+  var old=document.querySelectorAll('.len-label');
+  for(var i=0;i<old.length;i++) old[i].remove();
+  activeItems.forEach(function(el){ el._label=null; });
+}
+// Create one "Long"/"Short" label centred horizontally on the panel and sitting
+// just BELOW its own twig (clamped so it never runs off the bottom of the panel).
+function labelTwig(item){
+  var def=item._def;
+  if(item._label){ item._label.remove(); }
+  var b=document.createElement('div');
+  b.className='len-label '+def.length;
+  b.textContent = def.length==='short' ? 'Short' : 'Long';
+  stage.appendChild(b); item._label=b;
+  var w=item.offsetWidth, h=item.offsetHeight;
+  var cx=parseFloat(item.style.left)+w/2;
+  var cy=parseFloat(item.style.top)+h/2;
+  var rot=(def.rot||0)*Math.PI/180;
+  var halfH=(Math.abs(w*Math.sin(rot))+Math.abs(h*Math.cos(rot)))/2;
+  var panel=document.getElementById('panel');
+  var lh=b.offsetHeight||56;
+  var top = cy + halfH + 12;                                   // below the twig
+  var maxTop = panel.offsetTop + panel.offsetHeight - lh - 24; // keep inside the panel
+  if(top > maxTop) top = maxTop;
+  b.style.left=cx+'px'; b.style.top=top+'px';
+}
+
+/* =================== Soft glowing stars =================== */
+// A soft star: the fill is a radial gradient that fades to transparent at the
+// tips (no hard outline), and the .star CSS adds a warm glow halo.
+function starEl(size){
+  var gid='sg'+(starSeq++);
+  var d=document.createElement('div'); d.className='star';
+  d.style.width=size+'px'; d.style.height=size+'px';
+  d.innerHTML='<svg viewBox="0 0 100 100" width="100%" height="100%">'+
+    '<defs><radialGradient id="'+gid+'" cx="50%" cy="50%" r="52%">'+
+    '<stop offset="0%" stop-color="#fffdf0" stop-opacity="1"/>'+
+    '<stop offset="42%" stop-color="#ffe79a" stop-opacity=".95"/>'+
+    '<stop offset="100%" stop-color="#ffcf4d" stop-opacity="0"/>'+
+    '</radialGradient></defs>'+
+    '<polygon points="50,4 60,38 95,38 67,59 77,94 50,72 23,94 33,59 5,38 40,38" '+
+    'fill="url(#'+gid+')"/></svg>';
+  return d;
+}
+// A gentle cluster of soft glowing stars twinkles in around the tap point.
+function popStar(x,y){
+  var N=10;
+  for(var i=0;i<N;i++){
+    (function(i){
+      var size=16+Math.random()*30;                 // small, delicate
+      var s=starEl(size);
+      var ang=Math.random()*Math.PI*2;
+      var dist=Math.random()*64;                     // scattered softly around the point
+      var px=x+Math.cos(ang)*dist, py=y+Math.sin(ang)*dist;
+      s.style.left=(px-size/2)+'px'; s.style.top=(py-size/2)+'px';
+      stage.appendChild(s);
+      var driftY=-(14+Math.random()*44), rot=Math.random()*50-25;
+      var dur=820+Math.random()*620, delay=Math.random()*300;
+      s.animate([
+        {transform:'scale(0) rotate(0deg)',          opacity:0,   offset:0},
+        {transform:'scale(1) rotate('+rot+'deg)',    opacity:.95, offset:.4},
+        {transform:'translateY('+driftY+'px) scale(.55) rotate('+(rot*1.6)+'deg)', opacity:0, offset:1}
+      ], {duration:dur, delay:delay, easing:'cubic-bezier(.25,.7,.4,1)', fill:'forwards'});
+      setTimeout(function(){ s.remove(); }, dur+delay+60);
+    })(i);
+  }
+}
+
+// Where flying pieces land: the centre of the nest bowl at its CURRENT
+// grow-scale (the nest box is fixed; only its scale changes, around 50% 88%).
+function nestTargetPoint(){
+  var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
+  var s = NEST_MIN + (1-NEST_MIN)*frac;
+  var ox=575+580/2, oy=419+470*0.88;    // the scale origin is a fixed stage point
+  var bowlY=419+470*0.5;                 // bowl centre in the unscaled nest box
+  return { x:ox, y:oy-(oy-bowlY)*s };
+}
+// A learned twig flies off the board: a gentle arc into the nest, shrinking
+// on the way, then it settles and fades as its woven copy takes its place.
+function flyToNest(item, delay, onLand, dur){
+  var t=nestTargetPoint();
+  var x0=parseFloat(item.style.left)+item.offsetWidth/2;
+  var y0=parseFloat(item.style.top)+item.offsetHeight/2;
+  var dx=t.x-x0, dy=t.y-y0, rot=item._def.rot||0;
+  var anim=item.animate([
+    {transform:'translate(0,0) rotate('+rot+'deg) scale(1)', offset:0},
+    {transform:'translate('+(dx*.45).toFixed(1)+'px,'+(dy*.45-150).toFixed(1)+'px) '+
+      'rotate('+(rot*.6).toFixed(1)+'deg) scale(.72)', offset:.55},
+    {transform:'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) '+
+      'rotate('+(rot*.3).toFixed(1)+'deg) scale(.4)', opacity:1, offset:.88},
+    {transform:'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) '+
+      'rotate('+(rot*.3).toFixed(1)+'deg) scale(.3)', opacity:0, offset:1}
+  ], {duration:dur||1500, delay:delay||0, easing:'cubic-bezier(.5,.05,.45,1)', fill:'forwards'});   // slow, easy glide
+  anim.onfinish=function(){ if(onLand) onLand(); };
+}
+// Both tutorial twigs fly into the nest (the tapped one leads), each weaving
+// its copy into the nest and popping it as it lands.
+function flyPairToNest(leadItem, onAllLanded){
+  var landed=0;
+  activeItems.forEach(function(el){
+    flyToNest(el, el===leadItem?150:450, function(){
+      addMaterial(el._def);
+      nestInner.classList.remove('pop'); void nestInner.offsetWidth; nestInner.classList.add('pop');
+      if(++landed===activeItems.length && onAllLanded) onAllLanded();
+    }, 1900);   // tutorial pacing: an extra-gentle glide
+  });
+}
+
+// A new piece appears woven into the nest (it grows in place — nothing flies
+// across the screen or vanishes).
+function addMaterial(def){
+  var img=document.createElement('img');
+  img.src=def.src;
+  var w=nestEl.offsetWidth, h=nestEl.offsetHeight;
+  img.style.left=rand(0.20,0.60)*w+'px';
+  img.style.top =rand(0.32,0.58)*h+'px';
+  var rot=rand(-35,35);
+  materials.appendChild(img);
+  img.animate([
+    {transform:'rotate('+rot+'deg) scale(0)', opacity:0},
+    {transform:'rotate('+rot+'deg) scale('+rand(.7,1.05)+')', opacity:1}
+  ], {duration:420, easing:'cubic-bezier(.34,1.7,.5,1)', fill:'forwards'});
+}
+
+
+function advanceBuild(){
+  built++;
+  var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
+  // The nest grows a bit bigger every level; the fuller art swaps in FULLY once
+  // past the halfway point (holding it at partial opacity leaves a ghostly
+  // "shadow" of the big nest hanging around the small one), and on the FINAL
+  // level the rich "dense nest" art fades in.
+  nestBuilt.style.opacity = frac>=0.5 ? 1 : 0;                     // small -> fuller nest
+  if(built>=totalBuild) nestDense.style.opacity = 1;               // final: dense nest
+  nestEl.style.transform = 'scale(' + (NEST_MIN + (1-NEST_MIN)*frac).toFixed(3) + ')';
+  nestInner.classList.remove('pop'); void nestInner.offsetWidth; nestInner.classList.add('pop');
+  progFill.style.height=(frac*100)+'%';
+  progressEl.classList.remove('bump'); void progressEl.offsetWidth; progressEl.classList.add('bump');
+}
+
+/* =================== Mascot cheer =================== */
+function hideMascot(){
+  mascot.classList.remove('show');
+  dialogue.classList.remove('show');
+  dimEl.classList.remove('show');
+  qbanner.style.opacity='1';
+}
+// Tutorial guide: the elephant stands on the left and speaks the instruction.
+// No background blur (it's part of the scene) and the child can still tap.
+// The elephant stays put across steps — only the bubble line re-pops.
+function guide(inner, big, onTyped){
+  qbanner.style.opacity='0';
+  dimEl.classList.remove('show');          // crisp scene, no blur
+  mascot.classList.add('show');            // slides in only the first time
+  dialogue.classList.remove('show'); void dialogue.offsetWidth; dialogue.classList.add('show'); // re-pop bubble each line
+  typeText(dlgtext, '<span class="msg'+(big?' big':'')+'">'+inner+'</span>', TEACH_TYPE_MS, onTyped);
+}
+// Typewriter: set the full HTML (keeping <br> and highlighted spans intact), then
+// reveal it one character at a time. Each character is wrapped in a span so the
+// layout stays put (no jitter) while the letters fade on in order.
+function typeText(el, html, charMs, done){
+  if(typeTimer){ clearTimeout(typeTimer); typeTimer=null; }
+  el.innerHTML = html;
+  var walker=document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), tn, tnodes=[];
+  while(tn=walker.nextNode()) tnodes.push(tn);
+  var chars=[];
+  for(var i=0;i<tnodes.length;i++){
+    var node=tnodes[i], txt=node.nodeValue || '';
+    var frag=document.createDocumentFragment();
+    for(var c=0;c<txt.length;c++){
+      var sp=document.createElement('span'); sp.className='tw-c'; sp.textContent=txt[c];
+      frag.appendChild(sp); chars.push(sp);
+    }
+    if(txt.length) node.parentNode.replaceChild(frag, node);
+  }
+  var idx=0;
+  (function reveal(){
+    if(idx>=chars.length){ typeTimer=null; if(done) done(); return; }
+    chars[idx++].classList.add('on');
+    typeTimer=setTimeout(reveal, charMs);
+  })();
+}
+
+/* =================== Idle nudge =================== */
+function armIdle(ms){ stopIdle(); idleTimer=setTimeout(startNudge, ms||IDLE_MS); }
+function stopIdle(){ if(idleTimer){ clearTimeout(idleTimer); idleTimer=null; }
+  activeItems.forEach(function(el){ el.classList.remove('nudge'); }); }
+function startNudge(){ if(roundLocked || curLevel().teach) return; sfx.nudge();   // no idle pulse during the tutorial
+  activeItems.forEach(function(el){ el.classList.add('nudge'); }); }
+
+/* =================== Progression =================== */
+function nextRound(slow){ cursor++; if(cursor>=order.length) win(); else renderRound(slow); }
+
+var winTimer=null, celebTimer=null;
+function win(){
+  hideMascot(); stopIdle(); clearItems();
+  qbanner.style.opacity='0';            // no stale prompt over the celebration
+  nestBuilt.style.opacity='1'; nestDense.style.opacity='1'; nestEl.style.transform='scale(1)';   // full dense nest
+  document.getElementById('panel').style.opacity='0';   // clear the stage —
+  progressEl.style.opacity='0';                          // just the nest and its birds
+  // Wait for the final answer's pew-pew fly-by to leave the screen, THEN the
+  // celebration: the three birds arrive and circle the saved nest…
+  var wait=Math.max(0, flybirdEndsAt - Date.now());
+  celebTimer=setTimeout(function(){
+    sfx.win(); spawnWinBirds(); confetti();
+    winTimer=setTimeout(function(){ winEl.classList.add('show'); }, 3200);   // …then Play Again pops
+  }, wait);
+}
+function confetti(){
+  var colors=['#ef7d23','#7bc043','#2b9fe0','#e21f0c','#ffd23f','#c44569'];
+  for(var i=0;i<70;i++){
+    (function(i){
+      var c=document.createElement('div'); c.className='confetti';
+      c.style.background=colors[i%colors.length];
+      c.style.left=rand(0,1920)+'px'; c.style.top='-40px'; stage.appendChild(c);
+      c.animate([
+        {transform:'translateY(0) rotate(0)', opacity:1},
+        {transform:'translateY(1180px) rotate('+rand(360,900)+'deg)', opacity:0}
+      ], {duration:rand(2000,3400), delay:rand(0,900), easing:'cubic-bezier(.3,.6,.6,1)', fill:'forwards'});
+      setTimeout(function(){ c.remove(); }, 4400);
+    })(i);
+  }
+}
+
+/* =================== Start / restart =================== */
+// Levels play in their defined order (tutorial first, then Level 2 → 5).
+function buildOrder(){
+  order=levels.map(function(_,i){ return i; });
+  // Only the real play rounds fill the meter / build the nest — the tutorial
+  // is just for learning, so it's excluded.
+  totalBuild=order.filter(function(i){ return !levels[i].teach; }).length;
+  built=0; cursor=0;
+}
+// Leaf wipe: green palm-leaves sprout in one-by-one (a diagonal sweep) over a
+// green backdrop to cover the screen; we swap title→game underneath, then the
+// leaves shrink away one-by-one to reveal it.
+var LEAF_SRCS = ['assets/leaf-0.svg','assets/leaf-1.svg','assets/leaf-2.svg','assets/leaf-3.svg','assets/leaf-4.svg'];
+function leafTransition(onCovered){
+  var wrap=document.getElementById('hexwipe');
+  var bg=wrap.querySelector('.leafbg');
+  var old=wrap.querySelectorAll('.leafcell');
+  for(var k=0;k<old.length;k++) old[k].remove();
+
+  var W=1920, H=1080;
+  var step=200, size=350;          // denser grid + big leaves so they overlap fully
+  var SWEEP=0.15;                  // ms of stagger per px (diagonal sweep)
+  var cells=[], maxIn=0, n=0;
+  for(var gx=-step/2; gx < W+step; gx+=step){
+    for(var gy=-step/2; gy < H+step; gy+=step){
+      var x=gx + ((n*53)%41-20);                    // gentle per-leaf jitter
+      var y=gy + ((n*29)%37-18);
+      var rot=(n*47)%360;                            // varied rotation
+      var src=LEAF_SRCS[n % LEAF_SRCS.length];
+      var d=document.createElement('div');
+      d.className='leafcell';
+      d.style.width=size+'px'; d.style.height=size+'px';
+      d.style.left=(x-size/2)+'px'; d.style.top=(y-size/2)+'px';
+      d.innerHTML='<img src="'+src+'" alt="">';
+      var inDelay=(x+y)*SWEEP;                        // top-left sprouts first
+      if(inDelay>maxIn) maxIn=inDelay;
+      cells.push({el:d, x:x, y:y, rot:rot, inDelay:inDelay});
+      wrap.appendChild(d);
+      n++;
+    }
+  }
+  wrap.classList.add('run');
+  void wrap.offsetWidth;                              // flush so the CSS transition fires
+  bg.style.opacity='1';                               // green backdrop fades solid (CSS transition)
+  var DUR=360;
+  cells.forEach(function(c){
+    c.el.animate(
+      [{transform:'scale(0) rotate('+c.rot+'deg)'},{transform:'scale(1.05) rotate('+c.rot+'deg)'}],
+      {duration:DUR, delay:c.inDelay, easing:'cubic-bezier(.34,1.56,.64,1)', fill:'forwards'});
+  });
+  // Fully covered → swap the scene, hold a beat, then sweep the leaves back open.
+  setTimeout(function(){
+    if(onCovered) onCovered();
+    setTimeout(function(){
+      var maxOut=0;
+      cells.forEach(function(c){
+        var outDelay=(c.x+c.y)*SWEEP;
+        if(outDelay>maxOut) maxOut=outDelay;
+        c.el.animate(
+          [{transform:'scale(1.05) rotate('+c.rot+'deg)'},{transform:'scale(0) rotate('+(c.rot+40)+'deg)'}],
+          {duration:DUR, delay:outDelay, easing:'cubic-bezier(.5,-0.2,.7,.3)', fill:'forwards'});
+      });
+      setTimeout(function(){ bg.style.opacity='0'; }, 220);   // backdrop fades out as leaves clear
+      setTimeout(function(){
+        wrap.classList.remove('run');
+        var leaves=wrap.querySelectorAll('.leafcell');
+        for(var j=0;j<leaves.length;j++) leaves[j].remove();
+        bg.style.opacity='';
+      }, maxOut+DUR+360);
+    }, 220);   // hold on the full green cover
+  }, maxIn+DUR+60);
+}
+function startGame(){
+  ac(); startMusic(); sfx.click();
+  leafTransition(function(){
+    introEl.classList.remove('show');
+    buildOrder(); renderRound(true);   // builds the tutorial scene behind the cover (slow reveal)
+  });
+}
+function restart(){ sfx.tap(); winEl.classList.remove('show');
+  clearTimeout(winTimer); clearTimeout(celebTimer); clearWinBirds();
+  document.getElementById('panel').style.opacity=''; progressEl.style.opacity='';
+  materials.innerHTML=''; nestBuilt.style.opacity='0'; nestDense.style.opacity='0'; nestEl.style.transform='scale('+NEST_MIN+')'; progFill.style.height='0';
+  buildOrder(); renderRound(); }
+
+function bindPress(el, fn){
+  var done=false;
+  function f(e){ if(done) return; done=true; setTimeout(function(){done=false;},300);
+    if(e&&e.preventDefault) e.preventDefault(); try{ fn(); }catch(err){ console.error(err); } }
+  el.addEventListener('click', f);
+  el.addEventListener('touchend', f, {passive:false});
+}
+bindPress(document.getElementById('playBtn'), startGame);
+bindPress(document.getElementById('againBtn'), restart);
+// "Start!" on the tutorial-complete screen begins the real levels.
+bindPress(document.getElementById('startBtn'), function(){ sfx.tap(); readyEl.classList.remove('show'); nextRound(); });
+
+/* =================== Boot =================== */
+resolveLevels().then(function(out){
+  levels=out; loadingEl.classList.add('hide');
+  if(levels.length===0){ loadingEl.classList.remove('hide'); loadingEl.textContent='No item art found in /assets.'; return; }
+  console.info('[Save the Nest] '+levels.length+' playable round(s).');
+});
+</script>
+</body>
+</html>
