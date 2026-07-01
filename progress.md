@@ -52,7 +52,8 @@ Items shuffle per play round (answer isn't positional). The tutorial keeps a fix
 - **Correct tap (play):** star pop + a fly-by bird (`flying bird 1/2/3.webp`, says "pew pew"; bird 1 is mirrored), and **only the correct item** glides into the nest (`flyToNest`, slow 1.5s arc) — it fades as its woven copy appears, and the nest grows + meter fills as it lands. The other item stays on the board until the next round. No "Long/Short" label, no dialogue.
 - **Wrong tap (all play levels 2–6):** the item shakes + error sound (no red glow) and the question banner **types out** "Oops! That is not right." via the `typeText` typewriter (`bannerOops()` — no banner pop; "Oops!" coloured via `#qtext .oops`; the `.tw-c` reveal classes are shared with the speech bubble). The prompt is restored after a read pause; a correct tap clears it immediately (guarded by `oopsToken`). No elephant wrong-tap explanation. The tutorial keeps its own guidance (pulse the correct twig; banner hidden there).
 - **"Long"/"Short" labels:** shown **only in the tutorial**, below each twig — a label appears **only when its twig is tapped** (never pre-shown) and stays until the twigs fly into the nest.
-- **Idle nudge:** items gently pulse after ~8s of inactivity in **play levels only** (disabled in the tutorial).
+- **Hand nudge ("tap here" finger, `hand nudge.svg`, 210px):** a reusable `.hand` element (`showHandAt`/`showHandOnItem`/`hideHand`), tap animation `handTap`, dark drop-shadow for contrast on the cream panel. **Only the hand animates — the items no longer pulse.** **Tutorial:** points at the correct twig each step (`pulseCorrect`/`clearPulse`) — long twig step 1, short twig step 2. **Play:** appears only on idle (`startNudge`), **centred in the placeholder board** (from `panelEl`, not the items) so it never reveals the answer. Hides on any tap / round change (`stopIdle`, `renderRound`).
+- **Idle nudge:** the hand appears after ~8s of inactivity in **play levels only** (disabled in the tutorial). The old item-pulse (`.item.nudge`/`itemNudge`) is no longer applied — dead CSS kept but unused.
 - **Audio:** background music loops (low volume) + synthesized WebAudio SFX (tap/correct/wrong/star/win/pew/click). Started on first user gesture. There is **no** sound toggle button.
 
 ---
@@ -77,13 +78,13 @@ Items shuffle per play round (answer isn't positional). The tutorial keeps a fix
 ---
 
 ## Assets in use ([`assets/`](assets/))
-- **Backgrounds/UI:** `background.webp`, `tittle screen.webp`, `question box.webp`, `play button.svg`, `play again.svg`.
+- **Backgrounds/UI:** `background.webp`, `tittle screen.webp`, `question box.webp`, `play button.svg`, `play again.svg`, `hand nudge.svg`.
 - The folder is now trimmed to only files the game references (the unused `Feather big`, `long feather`, `object placeholder`, `progress bar` were removed).
 - **Nest:** `small nest.webp`, `big nest.webp`, `dens nest.webp`.
 - **Items:** `long twig.webp`, `small twig.webp`, `long feather 2.webp` (blue), `small feather.webp` (red), `Long leaf.webp`, `short leaf.webp`.
 - **Character:** `character.webp`, `character dialouge box.webp`.
 - **Transition leaves:** `leaf-0.svg` … `leaf-4.svg`.
-- **Birds:** `flying bird 1/2/3.webp` (animated WebP).
+- **Birds:** `flying bird 1/2/3.webp` (animated WebP, ~1 MB each — **preloaded at boot** so the fly-by isn't blank/out-of-sync on a fresh deployed load; the `.pew` text is also gated to not show before the bird image is ready).
 - **Audio:** [`audio/Background music.mp3`](audio/).
 - The item panel and progress track are **drawn in CSS** (not images).
 

@@ -156,6 +156,19 @@
   #stage.teach #mascot{ transition-duration:.6s; }
   #stage.teach .nest-inner.pop{ animation-duration:1s; }
 
+  /* ---------- Hand nudge ("tap here" finger) ----------
+     Shown on the correct twig in the tutorial, and as an idle prompt in play.
+     The art is light yellow, so a dark drop-shadow keeps it visible on the
+     cream panel. Fingertip points UP, so a "tap" is a small upward poke. */
+  .hand{ position:absolute; z-index:50; width:210px; height:auto; pointer-events:none;
+    opacity:0; transition:opacity .22s ease; will-change:transform, opacity;
+    filter:drop-shadow(1.5px 1.5px 0 rgba(90,55,12,.6)) drop-shadow(-1.5px -1px 0 rgba(90,55,12,.4))
+           drop-shadow(0 4px 5px rgba(0,0,0,.32)); }
+  .hand.show{ opacity:1; animation:handTap 1.1s ease-in-out infinite; }
+  @keyframes handTap{ 0%,100%{ transform:translate(0,0) scale(1); }
+    50%{ transform:translate(-5px,-15px) scale(.9); } }
+  #stage.teach .hand.show{ animation-duration:1.35s; }   /* gentler in the tutorial */
+
   /* ---------- Soft glowing stars ---------- */
   .star{ position:absolute; z-index:55; pointer-events:none;
     filter:drop-shadow(0 0 6px rgba(255,224,130,.95)) drop-shadow(0 0 15px rgba(255,205,90,.5));
@@ -523,6 +536,13 @@ function flyBird(){
   var flip = (i===0) ? ' flip' : '';   // flying bird 1 faces left — mirror it to face the flight direction
   bird.innerHTML='<span class="pew">pew pew!</span><img class="bird'+flip+'" src="'+src+'" alt="">';
   stage.appendChild(bird);
+  // Keep the "pew pew!" text hidden until the bird image is actually ready, so
+  // the text never appears before the bird (instant when the WebP is preloaded).
+  var pew=bird.querySelector('.pew'), img=bird.querySelector('.bird');
+  if(!(img.complete && img.naturalWidth)){
+    pew.style.opacity='0';
+    img.addEventListener('load', function(){ pew.style.opacity=''; });
+  }
   sfx.pew();
   bird.animate([
     {transform:'translate(-340px,0) rotate(-3deg)'},
@@ -652,6 +672,9 @@ var introEl  = document.getElementById('intro');
 var readyEl  = document.getElementById('ready');
 var winEl    = document.getElementById('win');
 var loadingEl= document.getElementById('loading');
+// Reusable "tap here" hand nudge (one element, repositioned as needed).
+var handEl=document.createElement('img'); handEl.className='hand';
+handEl.src='assets/hand nudge.svg'; handEl.alt=''; stage.appendChild(handEl);
 
 /* =================== State =================== */
 var levels=[], order=[], cursor=0, roundLocked=false, activeItems=[], idleTimer=null, starSeq=0;
@@ -731,7 +754,7 @@ function makeItem(def, slotEl){
 
 // slow=true right after the transition → the tutorial reveals one by one, gently.
 function renderRound(slow){
-  clearReveal(); clearItems(); hideMascot(); clearBannerOops(); roundLocked=false;
+  clearReveal(); clearItems(); hideMascot(); clearBannerOops(); hideHand(); roundLocked=false;
   var lvl=curLevel();
   teachStep = lvl.teach ? 1 : 0;
   stage.classList.toggle('teach', !!lvl.teach);         // tutorial: slower animation pacing
@@ -805,14 +828,29 @@ function renderRound(slow){
   armIdle();
 }
 function clearReveal(){ for(var i=0;i<revealTimers.length;i++) clearTimeout(revealTimers[i]); revealTimers=[]; }
-// Pulse ONLY the twig the current tutorial step is asking for (no glow).
+// Hand nudge: put the "tap here" finger with its fingertip on a point / an item.
+function showHandAt(cx, cy){
+  var w=handEl.offsetWidth||210;
+  handEl.style.left=(cx - w*0.44)+'px';   // fingertip sits ~44%/37% into the art
+  handEl.style.top =(cy - w*0.37)+'px';
+  handEl.classList.add('show');
+}
+function showHandOnItem(item){
+  showHandAt(parseFloat(item.style.left)+item.offsetWidth/2,
+             parseFloat(item.style.top)+item.offsetHeight/2);
+}
+function hideHand(){ handEl.classList.remove('show'); }
+
+// Point the hand at the twig the current tutorial step is asking for, so the
+// child sees exactly which twig to tap. Only the HAND animates (the twig itself
+// is left still).
 function pulseCorrect(){
   clearPulse();
   var lvl=curLevel(); if(!lvl.teach) return;
   var step=lvl.steps[teachStep-1]; if(!step) return;
-  activeItems.forEach(function(el){ if(el._def.length===step.need) el.classList.add('nudge'); });
+  activeItems.forEach(function(el){ if(el._def.length===step.need) showHandOnItem(el); });
 }
-function clearPulse(){ activeItems.forEach(function(el){ el.classList.remove('nudge'); }); }
+function clearPulse(){ hideHand(); }
 
 /* =================== Input (tap) ===================
    Taps fire on the standard `click`/`touchend` events — these reach the item
@@ -1126,9 +1164,16 @@ function typeText(el, html, charMs, done){
 /* =================== Idle nudge =================== */
 function armIdle(ms){ stopIdle(); idleTimer=setTimeout(startNudge, ms||IDLE_MS); }
 function stopIdle(){ if(idleTimer){ clearTimeout(idleTimer); idleTimer=null; }
-  activeItems.forEach(function(el){ el.classList.remove('nudge'); }); }
-function startNudge(){ var lvl=curLevel(); if(roundLocked || !lvl || lvl.teach) return; sfx.nudge();   // no idle pulse during the tutorial
-  activeItems.forEach(function(el){ el.classList.add('nudge'); }); }
+  activeItems.forEach(function(el){ el.classList.remove('nudge'); }); hideHand(); }
+// Idle nudge in PLAY: ONLY the hand animates (items stay still). The fingertip
+// rests on ONE item — the correct answer — so an idle child gets a real hint
+// (pointing at a fixed slot could aim at the wrong item, since positions shuffle).
+function startNudge(){ var lvl=curLevel(); if(roundLocked || !lvl || lvl.teach || !activeItems.length) return;
+  sfx.nudge();
+  var target=null;
+  activeItems.forEach(function(el){ if(el._def.length===lvl.ask) target=el; });
+  showHandOnItem(target || activeItems[0]);
+}
 
 /* =================== Progression =================== */
 function nextRound(slow){ cursor++; if(cursor>=order.length) win(); else renderRound(slow); }
@@ -1260,6 +1305,15 @@ bindPress(document.getElementById('playBtn'), startGame);
 bindPress(document.getElementById('againBtn'), restart);
 // "Start!" on the tutorial-complete screen begins the real levels.
 bindPress(document.getElementById('startBtn'), function(){ sfx.tap(); readyEl.classList.remove('show'); nextRound(); });
+
+/* =================== Preload heavy art ===================
+   The fly-by birds are large animated WebPs (~1 MB each). On a deployed server
+   they stream in over the network, so without preloading the "pew pew!" text
+   (plain DOM) shows instantly while the bird image is still blank — the fly-by
+   looks empty and out of sync. Fetch them (plus the transition leaves) during
+   the title screen so they're cached and render together when needed. */
+var _preload=[];
+BIRD_GIFS.concat(LEAF_SRCS, ['assets/hand nudge.svg']).forEach(function(s){ var im=new Image(); im.src=s; _preload.push(im); });
 
 /* =================== Boot =================== */
 resolveLevels().then(function(out){
