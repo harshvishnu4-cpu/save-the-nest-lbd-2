@@ -937,6 +937,7 @@ function handleTap(item){
         clearLabels();
         flyPairToNest(item, function(){
           nestEl.style.transform='scale(.52)';   // the twigs made the nest bigger
+          panelEl.style.opacity='0';             // empty board fades out — elephant hands over alone
           guide('Now, it is your turn!', true, function(){
             setTimeout(function(){ leafTransition(function(){ hideMascot(); nextRound(true); }); }, READ_PAUSE);
           });
@@ -1284,6 +1285,7 @@ function leafTransition(onCovered){
 function startGame(){
   ac(); startMusic(); sfx.click();
   leafTransition(function(){
+    document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
     introEl.classList.remove('show');
     buildOrder(); renderRound(true);   // builds the tutorial scene behind the cover (slow reveal)
   });
