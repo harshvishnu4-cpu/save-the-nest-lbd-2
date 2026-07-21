@@ -496,8 +496,9 @@ var soundOn=true;
 
 // Looping background music (starts on the first user gesture — browsers block
 // autoplay before that).
+var BGM_VOL=0.15, BGM_DUCK=0.04;   // normal music level / level while a voice line speaks
 var bgm=new Audio('audio/Background music.mp3');
-bgm.loop=true; bgm.volume=0.15; bgm.preload='auto';
+bgm.loop=true; bgm.volume=BGM_VOL; bgm.preload='auto';
 function startMusic(){ if(soundOn){ var p=bgm.play(); if(p&&p.catch) p.catch(function(){}); } }
 
 // WebAudio synth for the little sound effects.
@@ -524,6 +525,74 @@ var sfx={
   pew:    function(){ tone(1500,.07,'square',.1,0); tone(1850,.07,'square',.1,.13); },
   click:  function(){ tone(740,.05,'square',.16,0); tone(1180,.1,'sine',.15,.05); }
 };
+
+/* Voiceover: real recordings of each dialogue line. Keyed by the line's plain
+   text (tags/punctuation stripped, lowercased) so callers just pass the HTML
+   they already show — playVoiceFor() looks up the clip and speaks it. The
+   tutorial's "twig" lines use the character-voice recordings; the play-round
+   banners use the "item" ones. Lines without a recording simply play nothing. */
+var VO_SRC={
+  'let us start fixing the nest':'audio/Let us start fixing the nest!.ogg',
+  'tap the long twig':'audio/Tap the long twig.ogg',
+  'tap the short twig':'audio/Tap the short twig.ogg',
+  'tap the long item':'audio/Tap the long item.ogg',
+  'tap the short item':'audio/Tap the short item.ogg',
+  'correct this twig is longer than the other one':'audio/Correct! This twig is longer than the other one.ogg',
+  'correct this twig is shorter than the other one':'audio/Correct! This twig is shorter than the other one.ogg',
+  'now it is your turn':'audio/now it is your turn.ogg',
+  'oops that is not right':'audio/Oops that is not right.ogg'
+};
+var voClips={}, voCurrent=null;
+
+// Duck the music under a voice line: fade it down when a clip starts and back
+// up when the clip ends (or is stopped). A single fade timer eases the volume
+// toward the target so the change is smooth, not a jarring jump.
+var bgmFade=null;
+function fadeBgm(target){
+  if(bgmFade){ clearInterval(bgmFade); bgmFade=null; }
+  bgmFade=setInterval(function(){
+    var v=bgm.volume, step=0.012;
+    if(Math.abs(v-target)<=step){ bgm.volume=target; clearInterval(bgmFade); bgmFade=null; }
+    else bgm.volume = v + (v<target ? step : -step);
+  }, 50);
+}
+function duckBgm(){ fadeBgm(BGM_DUCK); }
+function unduckBgm(){ fadeBgm(BGM_VOL); }
+
+Object.keys(VO_SRC).forEach(function(k){ var s=VO_SRC[k];
+  if(!voClips[s]){ var a=new Audio(s); a.preload='auto';
+    a.addEventListener('ended', function(){ if(voCurrent===a){ voCurrent=null; unduckBgm(); } });
+    voClips[s]=a; } });
+function voKey(html){
+  var d=document.createElement('div');
+  d.innerHTML=String(html).replace(/<br\s*\/?>/gi,' ');
+  return (d.textContent||'').toLowerCase().replace(/[^a-z ]+/g,'').replace(/\s+/g,' ').trim();
+}
+function stopVoice(){ if(voCurrent){ try{ voCurrent.pause(); voCurrent.currentTime=0; }catch(e){} voCurrent=null; } unduckBgm(); }
+function playVoiceFor(html){
+  var src=VO_SRC[voKey(html)]; if(!src) return;
+  stopVoice(); if(!soundOn) return;
+  var a=voClips[src]; voCurrent=a;
+  try{
+    a.currentTime=0; duckBgm();
+    var p=a.play();
+    // If playback is blocked, bring the music back — there's no line to hear.
+    if(p&&p.catch) p.catch(function(){ if(voCurrent===a){ voCurrent=null; unduckBgm(); } });
+  }catch(e){ voCurrent=null; unduckBgm(); }
+}
+// Mobile browsers only allow audio started by a user gesture. bgm gets its
+// gesture from the Play button; prime the voice clips on that same tap (a
+// muted play/pause per clip) so later timer-driven lines are allowed too.
+function unlockVoices(){
+  Object.keys(voClips).forEach(function(s){ var a=voClips[s];
+    try{ a.muted=true;
+      var p=a.play();
+      if(p&&p.then) p.then(function(){ a.pause(); a.currentTime=0; a.muted=false; })
+                     .catch(function(){ a.muted=false; });
+      else { a.pause(); a.currentTime=0; a.muted=false; }
+    }catch(e){ a.muted=false; }
+  });
+}
 
 /* A cheerful bird (real GIF art) that glides slowly across on a correct answer.
    It cycles through the three birds so a DIFFERENT one appears each time. */
@@ -820,7 +889,8 @@ function renderRound(slow){
     panelEl.style.opacity='';      // the board is always visible in play rounds
     qtext.innerHTML = lvl.prompt || buildPrompt(lvl.ask);
     var pop=function(){ qbanner.style.opacity='1';
-      qbanner.classList.remove('pop'); void qbanner.offsetWidth; qbanner.classList.add('pop'); };
+      qbanner.classList.remove('pop'); void qbanner.offsetWidth; qbanner.classList.add('pop');
+      playVoiceFor(qtext.innerHTML); };   // speak the round's prompt as it pops
     if(slow){ qbanner.style.opacity='0'; revealTimers.push(setTimeout(pop, 640)); } else { pop(); }
     var base = slow ? 700 : 0, g = slow ? 430 : 100;
     enterAt(a, base, 'enter'); enterAt(b, base+g, 'enter');
@@ -889,6 +959,7 @@ function setPrompt(){ var lvl=curLevel(); qtext.innerHTML = (lvl&&(lvl.prompt||b
 function bannerOops(){
   if(bannerRestoreT){ clearTimeout(bannerRestoreT); bannerRestoreT=null; }
   var my=++oopsToken;
+  playVoiceFor('Oops! That is not right.');   // spoken alongside the typed line
   typeText(qtext, '<span class="oops">Oops!</span> That is not right.', TYPE_MS, function(){
     if(my!==oopsToken) return;   // superseded by a correct tap or new round
     bannerRestoreT=setTimeout(function(){ if(my===oopsToken) setPrompt(); bannerRestoreT=null; }, READ_PAUSE);
@@ -899,6 +970,7 @@ function clearBannerOops(){
   oopsToken++;
   if(bannerRestoreT){ clearTimeout(bannerRestoreT); bannerRestoreT=null; }
   if(typeTimer){ clearTimeout(typeTimer); typeTimer=null; }
+  stopVoice();   // a stale "Oops!" line shouldn't keep speaking over what follows
 }
 
 // Shared happy reward when a twig is the right answer (star + bounce).
@@ -1130,6 +1202,7 @@ function hideMascot(){
 // No background blur (it's part of the scene) and the child can still tap.
 // The elephant stays put across steps — only the bubble line re-pops.
 function guide(inner, big, onTyped){
+  playVoiceFor(inner);                     // speak the line as it types out
   qbanner.style.opacity='0';
   dimEl.classList.remove('show');          // crisp scene, no blur
   mascot.classList.add('show');            // slides in only the first time
@@ -1283,14 +1356,14 @@ function leafTransition(onCovered){
   }, maxIn+DUR+60);
 }
 function startGame(){
-  ac(); startMusic(); sfx.click();
+  ac(); startMusic(); sfx.click(); unlockVoices();
   leafTransition(function(){
     document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
     introEl.classList.remove('show');
     buildOrder(); renderRound(true);   // builds the tutorial scene behind the cover (slow reveal)
   });
 }
-function restart(){ sfx.tap(); winEl.classList.remove('show');
+function restart(){ sfx.tap(); stopVoice(); winEl.classList.remove('show');
   clearTimeout(winTimer); clearTimeout(celebTimer); clearWinBirds();
   document.getElementById('panel').style.opacity=''; progressEl.style.opacity='';
   materials.innerHTML=''; nestBuilt.style.opacity='0'; nestDense.style.opacity='0'; nestEl.style.transform='scale('+NEST_MIN+')'; progFill.style.height='0';
