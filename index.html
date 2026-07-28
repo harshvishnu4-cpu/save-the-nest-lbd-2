@@ -247,16 +247,6 @@
     transition:opacity .4s ease, visibility .4s ease; }
   .overlay.show{ opacity:1; visibility:visible; pointer-events:auto; }
   .intro-bg{ background:radial-gradient(ellipse at center,rgba(120,190,235,.35),rgba(0,0,0,.62)); }
-  /* Win: no card, no tint — the celebration scene stays fully visible and the
-     Play Again art button sits bottom-right, clear of the nest and birds. */
-  #win{ justify-content:flex-end; align-items:flex-end; padding:0 64px 52px 0; }
-  .again-btn{ width:340px; border:none; background:none; padding:0; cursor:pointer;
-    filter:drop-shadow(0 10px 14px rgba(0,0,0,.3)); will-change:transform; }
-  .again-btn img{ width:100%; height:auto; display:block; pointer-events:none; }
-  #win.show .again-btn{ animation:cardPop .55s cubic-bezier(.34,1.6,.5,1) both,
-    againPulse 1.5s ease-in-out .7s infinite; }
-  @keyframes againPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
-  .again-btn:active{ transform:scale(.93); animation:none; }
   .card{ background:linear-gradient(180deg,#fdf4dc,#f5e6b8); border:8px solid #c8772f;
     border-radius:46px; padding:64px 92px; text-align:center;
     box-shadow:0 12px 0 #8a4f1d,0 22px 50px rgba(0,0,0,.4);
@@ -407,13 +397,6 @@
       </div>
     </div>
 
-    <!-- Win: the celebration scene stays visible — just the Play Again button -->
-    <div class="overlay" id="win">
-      <button id="againBtn" class="again-btn" type="button" aria-label="Play Again">
-        <img src="assets/play again.svg" alt="Play Again">
-      </button>
-    </div>
-
     <!-- Leaf wipe between the title and the game (leaves filled in by JS) -->
     <div id="hexwipe"><div class="leafbg"></div></div>
 
@@ -522,7 +505,19 @@ var sfx={
   star:   function(){ tone(880,.1,'sine',.16,0); tone(1320,.18,'sine',.16,.08); },
   win:    function(){ [523,659,784,1047,784,1047,1319].forEach(function(n,i){ tone(n,.25,'triangle',.22,i*.15); }); },
   nudge:  function(){ tone(880,.08,'sine',.1); },
-  pew:    function(){ tone(1500,.07,'square',.1,0); tone(1850,.07,'square',.1,.13); },
+  // Two quick falling-pitch laser chirps — one per "pew", loud enough to hear
+  // over the music (the old fixed-pitch blips were too quiet to notice).
+  pew:    function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return;
+    [0,.22].forEach(function(off){ try{
+      var t=ctx.currentTime+off, o=ctx.createOscillator(), g=ctx.createGain();
+      o.type='square';
+      o.frequency.setValueAtTime(1750,t);
+      o.frequency.exponentialRampToValueAtTime(480,t+.16);
+      g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.3,t+.015);
+      g.gain.exponentialRampToValueAtTime(.0001,t+.19);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.22);
+    }catch(e){} });
+  },
   click:  function(){ tone(740,.05,'square',.16,0); tone(1180,.1,'sine',.15,.05); }
 };
 
@@ -710,7 +705,8 @@ var LEVELS = [
       {src:ART.featherLong, length:'long',  noun:'feather', w:270, h:245, rot:8} ] }
 ];
 
-var IDLE_MS = 8000, NUDGE_AFTER_WRONG = 4000;
+var IDLE_MS = 8000;           // hand hint if the child does nothing at all
+var NUDGE_AFTER_WRONG = 1200; // hand hint delay after the SECOND mistake on a round
 var TYPE_MS = 60;       // typewriter speed per letter (slow, so kids can read)
 var TEACH_TYPE_MS = 70; // tutorial types a touch slower still
 var READ_PAUSE = 1600;  // pause after a line finishes typing, before anything advances
@@ -739,7 +735,6 @@ var dlgtext  = document.getElementById('dlgtext');
 var dimEl    = document.getElementById('feedbackDim');
 var introEl  = document.getElementById('intro');
 var readyEl  = document.getElementById('ready');
-var winEl    = document.getElementById('win');
 var loadingEl= document.getElementById('loading');
 // Reusable "tap here" hand nudge (one element, repositioned as needed).
 var handEl=document.createElement('img'); handEl.className='hand';
@@ -747,6 +742,7 @@ handEl.src='assets/hand nudge.svg'; handEl.alt=''; stage.appendChild(handEl);
 
 /* =================== State =================== */
 var levels=[], order=[], cursor=0, roundLocked=false, activeItems=[], idleTimer=null, starSeq=0;
+var wrongCount=0;            // mistakes on the current round/step — 2 summon the pointing hand
 var built=0, totalBuild=0;   // rounds completed / total rounds (drives nest fill)
 var teachStep=0;             // tutorial: which guided step (1..steps.length)
 var revealTimers=[];         // pending "appear one by one" timeouts (cancelled per round)
@@ -824,6 +820,7 @@ function makeItem(def, slotEl){
 // slow=true right after the transition → the tutorial reveals one by one, gently.
 function renderRound(slow){
   clearReveal(); clearItems(); hideMascot(); clearBannerOops(); hideHand(); roundLocked=false;
+  wrongCount=0;   // fresh round, fresh chances before the hand helps
   var lvl=curLevel();
   teachStep = lvl.teach ? 1 : 0;
   stage.classList.toggle('teach', !!lvl.teach);         // tutorial: slower animation pacing
@@ -880,7 +877,7 @@ function renderRound(slow){
           a.style.opacity=''; b.style.opacity='';   // entrance animations take over (held at 0%)
           enterAt(a, 700, 'enter-soft'); enterAt(b, 1450, 'enter-soft');
           revealTimers.push(setTimeout(function(){
-            guide(lvl.steps[0].bubble, true, function(){ revealTimers.push(setTimeout(pulseCorrect, 350)); });
+            guide(lvl.steps[0].bubble, true);   // no hand yet — it only helps after two mistakes
           }, 2650));   // bubble comes after both twigs have appeared
         }, READ_PAUSE));
       });
@@ -970,7 +967,6 @@ function clearBannerOops(){
   oopsToken++;
   if(bannerRestoreT){ clearTimeout(bannerRestoreT); bannerRestoreT=null; }
   if(typeTimer){ clearTimeout(typeTimer); typeTimer=null; }
-  stopVoice();   // a stale "Oops!" line shouldn't keep speaking over what follows
 }
 
 // Shared happy reward when a twig is the right answer (star + bounce).
@@ -988,10 +984,16 @@ function handleTap(item){
   // ---------------- Guided tutorial (2 steps) ----------------
   if(lvl.teach){
     var step=lvl.steps[teachStep-1];
-    // Wrong: shake + error sound, and pulse the correct twig to guide.
-    // Pending reveal timers are kept — cancelling them here would also cancel
-    // the instruction bubble if the child taps before it has appeared.
-    if(item._def.length !== step.need){ wrongFeedback(item); armIdle(NUDGE_AFTER_WRONG); pulseCorrect(); return; }
+    // Wrong: shake + error sound. The hand only points at the correct twig
+    // once the child has missed TWICE on this step — one slip is theirs to
+    // rethink. Pending reveal timers are kept — cancelling them here would
+    // also cancel the instruction bubble if the child taps before it appears.
+    if(item._def.length !== step.need){
+      wrongCount++;
+      wrongFeedback(item);
+      if(wrongCount>=2) revealTimers.push(setTimeout(pulseCorrect, 600));
+      return;
+    }
 
     roundLocked=true; enableItems(false);
     activeItems.forEach(function(el){ el.classList.remove('nudge'); });
@@ -1016,8 +1018,8 @@ function handleTap(item){
         });
       } else {
         teachStep++;   // earned labels stay — each twig keeps the label from its own tap
-        // next instruction types out, then its correct twig lights up
-        guide(lvl.steps[teachStep-1].bubble, true, function(){ revealTimers.push(setTimeout(pulseCorrect, 350)); });
+        wrongCount=0;  // new step, fresh chances before the hand helps
+        guide(lvl.steps[teachStep-1].bubble, true);   // next instruction — hand waits for two mistakes
         roundLocked=false; enableItems(true); armIdle();
       }
     };
@@ -1046,7 +1048,11 @@ function handleTap(item){
     setTimeout(nextRound, 2150);
   } else {
     // Wrong: shake + "Oops! That is not right." in the banner, then try again.
-    wrongFeedback(item); bannerOops(); armIdle(NUDGE_AFTER_WRONG);   // nudge sooner after a mistake
+    // Shake + "Oops!". The pointing hand only reveals the answer after the
+    // SECOND mistake on this round — a single slip stays the child's to solve.
+    wrongCount++;
+    wrongFeedback(item); bannerOops();
+    if(wrongCount>=2) armIdle(NUDGE_AFTER_WRONG); else armIdle();
   }
 }
 
@@ -1252,7 +1258,7 @@ function startNudge(){ var lvl=curLevel(); if(roundLocked || !lvl || lvl.teach |
 /* =================== Progression =================== */
 function nextRound(slow){ cursor++; if(cursor>=order.length) win(); else renderRound(slow); }
 
-var winTimer=null, celebTimer=null;
+var celebTimer=null;
 function win(){
   hideMascot(); stopIdle(); clearItems();
   qbanner.style.opacity='0';            // no stale prompt over the celebration
@@ -1260,11 +1266,11 @@ function win(){
   document.getElementById('panel').style.opacity='0';   // clear the stage —
   progressEl.style.opacity='0';                          // just the nest and its birds
   // Wait for the final answer's pew-pew fly-by to leave the screen, THEN the
-  // celebration: the three birds arrive and circle the saved nest…
+  // celebration: the three birds arrive and circle the saved nest — the game's
+  // happy end state (no Play Again button; the celebration simply stays).
   var wait=Math.max(0, flybirdEndsAt - Date.now());
   celebTimer=setTimeout(function(){
     sfx.win(); spawnWinBirds(); confetti();
-    winTimer=setTimeout(function(){ winEl.classList.add('show'); }, 3200);   // …then Play Again pops
   }, wait);
 }
 function confetti(){
@@ -1283,7 +1289,7 @@ function confetti(){
   }
 }
 
-/* =================== Start / restart =================== */
+/* =================== Start =================== */
 // Levels play in their defined order (tutorial first, then Level 2 → 5).
 function buildOrder(){
   order=levels.map(function(_,i){ return i; });
@@ -1363,12 +1369,6 @@ function startGame(){
     buildOrder(); renderRound(true);   // builds the tutorial scene behind the cover (slow reveal)
   });
 }
-function restart(){ sfx.tap(); stopVoice(); winEl.classList.remove('show');
-  clearTimeout(winTimer); clearTimeout(celebTimer); clearWinBirds();
-  document.getElementById('panel').style.opacity=''; progressEl.style.opacity='';
-  materials.innerHTML=''; nestBuilt.style.opacity='0'; nestDense.style.opacity='0'; nestEl.style.transform='scale('+NEST_MIN+')'; progFill.style.height='0';
-  buildOrder(); renderRound(); }
-
 function bindPress(el, fn){
   var done=false;
   function f(e){ if(done) return; done=true; setTimeout(function(){done=false;},300);
@@ -1377,7 +1377,6 @@ function bindPress(el, fn){
   el.addEventListener('touchend', f, {passive:false});
 }
 bindPress(document.getElementById('playBtn'), startGame);
-bindPress(document.getElementById('againBtn'), restart);
 // "Start!" on the tutorial-complete screen begins the real levels.
 bindPress(document.getElementById('startBtn'), function(){ sfx.tap(); readyEl.classList.remove('show'); nextRound(); });
 
