@@ -1383,30 +1383,9 @@ function leafTransition(onCovered){
     }, 220);   // hold on the full green cover
   }, maxIn+DUR+60);
 }
-// "Save the Nest!" announcement on the TITLE screen. Browsers block sound
-// until the user's first interaction, so a true page-load autoplay usually
-// fails — we try it anyway (it works where the browser allows it) and
-// otherwise speak on the FIRST tap anywhere on the title screen, which is
-// before (or at) the Play press. Whichever path wins, it only plays once.
-var titleAnnounced=false;
-function announceTitle(fromGesture){
-  if(titleAnnounced || !soundOn) return;
-  if(!introEl.classList.contains('show')) return;   // title screen already gone
-  var a=voClips[VO_SRC['save the nest']]; if(!a) return;
-  if(fromGesture){ titleAnnounced=true; playVoiceFor('Save the Nest!'); return; }
-  try{                     // silent page-load attempt: only mark done if it really played
-    a.currentTime=0;
-    var p=a.play();
-    if(p&&p.then) p.then(function(){ titleAnnounced=true; voCurrent=a; })
-                   .catch(function(){});
-    else { titleAnnounced=true; voCurrent=a; }
-  }catch(e){}
-}
-document.addEventListener('pointerdown', function(){ announceTitle(true); });
-
 function startGame(){
   ac(); startMusic(); sfx.click();
-  announceTitle(true);   // fallback if no earlier gesture reached us
+  playVoiceFor('Save the Nest!');   // title announced once, right as the game starts
   unlockVoices();
   leafTransition(function(){
     document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
@@ -1439,7 +1418,6 @@ resolveLevels().then(function(out){
   levels=out; loadingEl.classList.add('hide');
   if(levels.length===0){ loadingEl.classList.remove('hide'); loadingEl.textContent='No item art found in /assets.'; return; }
   console.info('[Save the Nest] '+levels.length+' playable round(s).');
-  announceTitle(false);   // try to speak the title on load (plays where autoplay is allowed)
 });
 </script>
 </body>
