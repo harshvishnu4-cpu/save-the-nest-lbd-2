@@ -498,6 +498,8 @@ function tone(f,d,type,vol,when){ if(!soundOn) return; type=type||'sine'; vol=vo
     g.gain.exponentialRampToValueAtTime(.0001,t+d);
     o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+d+.05);
   }catch(e){} }
+// Real chirp recording for the pew-pew fly-by, loud enough to sit above the music.
+var pewClip=new Audio('audio/bird chirp.mp3'); pewClip.preload='auto'; pewClip.volume=0.6;
 var sfx={
   tap:    function(){ tone(620,.08,'square',.12); },
   correct:function(){ tone(523,.12,'sine',.2,0); tone(659,.12,'sine',.2,.1); tone(784,.2,'sine',.22,.2); tone(1047,.3,'sine',.2,.32); },
@@ -505,18 +507,10 @@ var sfx={
   star:   function(){ tone(880,.1,'sine',.16,0); tone(1320,.18,'sine',.16,.08); },
   win:    function(){ [523,659,784,1047,784,1047,1319].forEach(function(n,i){ tone(n,.25,'triangle',.22,i*.15); }); },
   nudge:  function(){ tone(880,.08,'sine',.1); },
-  // Two quick falling-pitch laser chirps — one per "pew", loud enough to hear
-  // over the music (the old fixed-pitch blips were too quiet to notice).
-  pew:    function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return;
-    [0,.22].forEach(function(off){ try{
-      var t=ctx.currentTime+off, o=ctx.createOscillator(), g=ctx.createGain();
-      o.type='square';
-      o.frequency.setValueAtTime(1750,t);
-      o.frequency.exponentialRampToValueAtTime(480,t+.16);
-      g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.3,t+.015);
-      g.gain.exponentialRampToValueAtTime(.0001,t+.19);
-      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.22);
-    }catch(e){} });
+  // Real bird-chirp recording for the fly-by (a 3s cut of the liveliest part
+  // of the freesound clip, faded out so it ends naturally mid-glide).
+  pew:    function(){ if(!soundOn) return;
+    try{ pewClip.currentTime=0; var p=pewClip.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){}
   },
   click:  function(){ tone(740,.05,'square',.16,0); tone(1180,.1,'sine',.15,.05); }
 };
@@ -576,10 +570,11 @@ function playVoiceFor(html){
   }catch(e){ voCurrent=null; unduckBgm(); }
 }
 // Mobile browsers only allow audio started by a user gesture. bgm gets its
-// gesture from the Play button; prime the voice clips on that same tap (a
-// muted play/pause per clip) so later timer-driven lines are allowed too.
+// gesture from the Play button; prime the voice clips (and the fly-by chirp)
+// on that same tap (a muted play/pause per clip) so later timer-driven
+// playback is allowed too.
 function unlockVoices(){
-  Object.keys(voClips).forEach(function(s){ var a=voClips[s];
+  Object.keys(voClips).map(function(s){ return voClips[s]; }).concat([pewClip]).forEach(function(a){
     try{ a.muted=true;
       var p=a.play();
       if(p&&p.then) p.then(function(){ a.pause(); a.currentTime=0; a.muted=false; })
