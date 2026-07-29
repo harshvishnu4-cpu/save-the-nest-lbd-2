@@ -283,8 +283,9 @@
      and pieces, but above the nest/branch so it still reads as flying past. */
   .flybird{ position:absolute; top:220px; left:0; width:200px; z-index:39;
     pointer-events:none; will-change:transform; }
-  .flybird .bird{ width:100%; height:auto; display:block;
-    filter:drop-shadow(0 8px 9px rgba(0,0,0,.28)); }
+  /* No drop-shadow on the animated birds — on many devices it renders as a
+     harsh dark blob under the sprite instead of a soft shadow. */
+  .flybird .bird{ width:100%; height:auto; display:block; }
   .flybird .bird.flip{ transform:scaleX(-1); }   /* mirror flying bird 1 horizontally */
   .flybird .pew{ position:absolute; bottom:62%; left:88%; white-space:nowrap;
     font-family:'Baloo 2',cursive; font-weight:800; font-size:44px;
@@ -293,8 +294,7 @@
 
   /* ---------- Win celebration: the three birds circle the saved nest ---------- */
   .winbird{ position:absolute; left:0; top:0; z-index:57; pointer-events:none; will-change:transform; }
-  .winbird img{ display:block; width:100%; height:auto;
-    filter:drop-shadow(0 8px 9px rgba(0,0,0,.28)); }
+  .winbird img{ display:block; width:100%; height:auto; }
 
   #loading{ position:absolute; inset:0; z-index:100; display:flex; align-items:center;
     justify-content:center; background:#1d2b14; color:#cfe8b0; font-size:40px; font-weight:800; }
@@ -498,8 +498,10 @@ function tone(f,d,type,vol,when){ if(!soundOn) return; type=type||'sine'; vol=vo
     g.gain.exponentialRampToValueAtTime(.0001,t+d);
     o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+d+.05);
   }catch(e){} }
-// Real chirp recording for the pew-pew fly-by, loud enough to sit above the music.
-var pewClip=new Audio('audio/bird chirp.mp3'); pewClip.preload='auto'; pewClip.volume=0.6;
+// Real chirp recordings: a short quiet burst for the pew-pew fly-by, and a
+// longer gentle loop that plays under the final celebration screen.
+var pewClip=new Audio('audio/bird chirp.mp3'); pewClip.preload='auto'; pewClip.volume=0.35;
+var winChirp=new Audio('audio/bird chirp long.mp3'); winChirp.preload='auto'; winChirp.volume=0.3; winChirp.loop=true;
 var sfx={
   tap:    function(){ tone(620,.08,'square',.12); },
   correct:function(){ tone(523,.12,'sine',.2,0); tone(659,.12,'sine',.2,.1); tone(784,.2,'sine',.22,.2); tone(1047,.3,'sine',.2,.32); },
@@ -507,6 +509,25 @@ var sfx={
   star:   function(){ tone(880,.1,'sine',.16,0); tone(1320,.18,'sine',.16,.08); },
   win:    function(){ [523,659,784,1047,784,1047,1319].forEach(function(n,i){ tone(n,.25,'triangle',.22,i*.15); }); },
   nudge:  function(){ tone(880,.08,'sine',.1); },
+  // Wind-through-leaves whoosh for the leaf-wipe transition: filtered noise
+  // that sweeps up and settles back down over ~1s.
+  whoosh: function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return; try{
+    var dur=1.0, t=ctx.currentTime;
+    var buf=ctx.createBuffer(1, Math.floor(ctx.sampleRate*dur), ctx.sampleRate);
+    var d=buf.getChannelData(0);
+    for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    var src=ctx.createBufferSource(); src.buffer=buf;
+    var f=ctx.createBiquadFilter(); f.type='bandpass'; f.Q.value=0.7;
+    f.frequency.setValueAtTime(350,t);
+    f.frequency.exponentialRampToValueAtTime(2400,t+dur*0.45);
+    f.frequency.exponentialRampToValueAtTime(420,t+dur);
+    var g=ctx.createGain();
+    g.gain.setValueAtTime(.0001,t);
+    g.gain.linearRampToValueAtTime(.32,t+dur*.25);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.start(t); src.stop(t+dur+.05);
+  }catch(e){} },
   // Real bird-chirp recording for the fly-by (a 3s cut of the liveliest part
   // of the freesound clip, faded out so it ends naturally mid-glide).
   pew:    function(){ if(!soundOn) return;
@@ -521,6 +542,7 @@ var sfx={
    tutorial's "twig" lines use the character-voice recordings; the play-round
    banners use the "item" ones. Lines without a recording simply play nothing. */
 var VO_SRC={
+  'save the nest':'audio/Save the Nest.ogg',
   'let us start fixing the nest':'audio/Let us start fixing the nest!.ogg',
   'tap the long twig':'audio/Tap the long twig.ogg',
   'tap the short twig':'audio/Tap the short twig.ogg',
@@ -574,7 +596,8 @@ function playVoiceFor(html){
 // on that same tap (a muted play/pause per clip) so later timer-driven
 // playback is allowed too.
 function unlockVoices(){
-  Object.keys(voClips).map(function(s){ return voClips[s]; }).concat([pewClip]).forEach(function(a){
+  Object.keys(voClips).map(function(s){ return voClips[s]; }).concat([pewClip, winChirp]).forEach(function(a){
+    if(a===voCurrent || !a.paused) return;   // don't touch a clip that's really speaking
     try{ a.muted=true;
       var p=a.play();
       if(p&&p.then) p.then(function(){ a.pause(); a.currentTime=0; a.muted=false; })
@@ -1266,6 +1289,8 @@ function win(){
   var wait=Math.max(0, flybirdEndsAt - Date.now());
   celebTimer=setTimeout(function(){
     sfx.win(); spawnWinBirds(); confetti();
+    // soft looping birdsong under the endless celebration scene
+    if(soundOn){ try{ var p=winChirp.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }
   }, wait);
 }
 function confetti(){
@@ -1325,6 +1350,7 @@ function leafTransition(onCovered){
       n++;
     }
   }
+  sfx.whoosh();                                       // leaves rushing in
   wrap.classList.add('run');
   void wrap.offsetWidth;                              // flush so the CSS transition fires
   bg.style.opacity='1';                               // green backdrop fades solid (CSS transition)
@@ -1338,6 +1364,7 @@ function leafTransition(onCovered){
   setTimeout(function(){
     if(onCovered) onCovered();
     setTimeout(function(){
+      sfx.whoosh();                                   // …and rushing back out
       var maxOut=0;
       cells.forEach(function(c){
         var outDelay=(c.x+c.y)*SWEEP;
@@ -1356,8 +1383,31 @@ function leafTransition(onCovered){
     }, 220);   // hold on the full green cover
   }, maxIn+DUR+60);
 }
+// "Save the Nest!" announcement on the TITLE screen. Browsers block sound
+// until the user's first interaction, so a true page-load autoplay usually
+// fails — we try it anyway (it works where the browser allows it) and
+// otherwise speak on the FIRST tap anywhere on the title screen, which is
+// before (or at) the Play press. Whichever path wins, it only plays once.
+var titleAnnounced=false;
+function announceTitle(fromGesture){
+  if(titleAnnounced || !soundOn) return;
+  if(!introEl.classList.contains('show')) return;   // title screen already gone
+  var a=voClips[VO_SRC['save the nest']]; if(!a) return;
+  if(fromGesture){ titleAnnounced=true; playVoiceFor('Save the Nest!'); return; }
+  try{                     // silent page-load attempt: only mark done if it really played
+    a.currentTime=0;
+    var p=a.play();
+    if(p&&p.then) p.then(function(){ titleAnnounced=true; voCurrent=a; })
+                   .catch(function(){});
+    else { titleAnnounced=true; voCurrent=a; }
+  }catch(e){}
+}
+document.addEventListener('pointerdown', function(){ announceTitle(true); });
+
 function startGame(){
-  ac(); startMusic(); sfx.click(); unlockVoices();
+  ac(); startMusic(); sfx.click();
+  announceTitle(true);   // fallback if no earlier gesture reached us
+  unlockVoices();
   leafTransition(function(){
     document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
     introEl.classList.remove('show');
@@ -1389,6 +1439,7 @@ resolveLevels().then(function(out){
   levels=out; loadingEl.classList.add('hide');
   if(levels.length===0){ loadingEl.classList.remove('hide'); loadingEl.textContent='No item art found in /assets.'; return; }
   console.info('[Save the Nest] '+levels.length+' playable round(s).');
+  announceTitle(false);   // try to speak the title on load (plays where autoplay is allowed)
 });
 </script>
 </body>
