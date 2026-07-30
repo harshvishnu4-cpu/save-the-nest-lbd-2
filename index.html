@@ -572,6 +572,17 @@ var sfx={
     src.connect(f); f.connect(g); g.connect(ctx.destination);
     src.start(t); src.stop(t+dur+.05);
   }catch(e){} },
+  // Springy "boing" for the item board bouncing open.
+  boing:  function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return; try{
+    var t=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='triangle';
+    o.frequency.setValueAtTime(240,t);
+    o.frequency.exponentialRampToValueAtTime(660,t+.12);
+    o.frequency.exponentialRampToValueAtTime(520,t+.22);
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.34,t+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+.3);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.34);
+  }catch(e){} },
   // Real bird-chirp recording for the fly-by (a 3s cut of the liveliest part
   // of the freesound clip, faded out so it ends naturally mid-glide).
   pew:    function(){ if(!soundOn) return;
@@ -952,6 +963,7 @@ function renderRound(slow){
   }
 
   if(lvl.teach){
+    roundLocked=true;              // no taps while the elephant is speaking
     qbanner.style.opacity='0';     // instruction lives in the elephant's speech bubble
     panelEl.style.opacity='0';     // board stays hidden for the greeting…
     activeItems.forEach(function(el){ el.style.opacity='0'; el.style.pointerEvents='none'; }); // …twigs too
@@ -965,10 +977,16 @@ function renderRound(slow){
         revealTimers.push(setTimeout(function(){
           panelEl.style.opacity='';   // hand the opacity back to the open animation
           panelEl.classList.remove('open'); void panelEl.offsetWidth; panelEl.classList.add('open');
+          sfx.boing();                // the board springs open with a bounce
           a.style.opacity=''; b.style.opacity='';   // entrance animations take over (held at 0%)
           enterAt(a, 700, 'enter-soft'); enterAt(b, 1450, 'enter-soft');
           revealTimers.push(setTimeout(function(){
-            guide(lvl.steps[0].bubble, true);   // no hand yet — it only helps after two mistakes
+            // Taps unlock only once the instruction has finished typing —
+            // the child listens first, then answers. (No hand yet — it only
+            // helps after two mistakes.)
+            guide(lvl.steps[0].bubble, true, function(){
+              roundLocked=false; enableItems(true); armIdle();
+            });
           }, 2650));   // bubble comes after both twigs have appeared
         }, READ_PAUSE));
       });
@@ -1111,8 +1129,10 @@ function handleTap(item){
       } else {
         teachStep++;   // earned labels stay — each twig keeps the label from its own tap
         wrongCount=0;  // new step, fresh chances before the hand helps
-        guide(lvl.steps[teachStep-1].bubble, true);   // next instruction — hand waits for two mistakes
-        roundLocked=false; enableItems(true); armIdle();
+        // Next instruction types out; taps stay locked until it's been said.
+        guide(lvl.steps[teachStep-1].bubble, true, function(){
+          roundLocked=false; enableItems(true); armIdle();
+        });
       }
     };
     guide('Correct! This twig is <span class="hl">'+word+'</span> than the other one.', false,
