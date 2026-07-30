@@ -231,7 +231,8 @@
     box-shadow:inset 0 2px 3px rgba(255,255,255,.5), inset 0 -2px 4px rgba(30,80,10,.45);
     transition:height .8s cubic-bezier(.22,.61,.36,1); }
   /* The little nest sits at the base of the meter (the goal marker). */
-  .prog-nest{ position:absolute; left:50%; bottom:-13px; transform:translateX(-50%);
+  /* The little nest rides the TOP of the rising fill as the meter grows. */
+  .prog-nest{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%);
     width:89px; height:auto; pointer-events:none; z-index:2;
     filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
 
@@ -403,8 +404,7 @@
     <!-- Nest-building meter: cream track + green vine, with the "Nest" sign
          riding the leading edge as it fills. -->
     <div id="progress">
-      <div class="prog-fill"></div>
-      <img class="prog-nest" src="assets/dens nest.webp" alt="Nest">
+      <div class="prog-fill"><img class="prog-nest" src="assets/dens nest.webp" alt="Nest"></div>
     </div>
 
     <!-- Background blur shown while the character is speaking -->
@@ -462,6 +462,21 @@
    Scales the fixed 1920x1080 stage to fit ANY screen (preserving aspect ratio,
    letterboxed). GPU-accelerated, viewport-aware, and debounced to one update
    per frame so resizing/rotating stays smooth. */
+/* Safety net for older phone browsers without the Web Animations API
+   (el.animate — missing on iOS <13.1 and old Android WebViews): jump straight
+   to the final keyframe and still fire onfinish, so every flourish is skipped
+   gracefully and the game always progresses instead of throwing. */
+if(!Element.prototype.animate){
+  Element.prototype.animate=function(frames, opts){
+    var el=this, last=frames && frames[frames.length-1] || {};
+    var dur=((opts&&opts.duration)||0) + ((opts&&opts.delay)||0);
+    for(var k in last){ if(k!=='offset' && k!=='easing'){ try{ el.style[k]=last[k]; }catch(e){} } }
+    var anim={ onfinish:null, cancel:function(){}, finished:null };
+    setTimeout(function(){ if(anim.onfinish) anim.onfinish(); }, dur);
+    return anim;
+  };
+}
+
 var _fitRAF=0;
 function fit(){
   if(_fitRAF) return;
