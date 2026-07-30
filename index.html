@@ -84,32 +84,43 @@
   #qbanner.pop{ animation:bannerPop .5s cubic-bezier(.34,1.56,.64,1); }
   @keyframes bannerPop{ 0%{ transform:scale(.94); } 60%{ transform:scale(1.03); } 100%{ transform:scale(1); } }
 
-  /* ---------- Item panel (bottom-right, two cells side by side) ---------- */
-  #panel{ position:absolute; left: 1125px;
-    top: 629px;
-    width: 663px; height:422px; z-index:40;
+  /* ---------- Item panel (bottom-right, two cells side by side) ----------
+     Main-game size (Figma 494:20). The tutorial uses the larger variant —
+     renderRound puts .teach on #stage, which flips every override below. */
+  #panel{ position:absolute; left: 1192px;
+    top: 672px;
+    width: 596px; height:379px; z-index:40;
     transition:opacity .6s ease; }               /* fades out for the win celebration */
   /* Orange frame with the big soft drop shadow */
-  .panel-frame{ position:absolute; inset:0; border-radius:38px;
+  .panel-frame{ position:absolute; inset:0; border-radius:34px;
     background:#e59235;
     box-shadow:0 13px 59px rgba(0,0,0,.25); }
   /* Warm cream inset with a soft recessed shadow */
-  .panel-inner{ position:absolute; inset:12px 14px; border-radius:28px;
+  .panel-inner{ position:absolute; inset:10px 13px; border-radius:25px;
     background:#f7ebc3;
     box-shadow:inset 0 6px 3px rgba(0,0,0,.25),
                inset 0 -6px 3px rgba(0,0,0,.25),
                inset 5px 0 10px rgba(0,0,0,.25),
                inset -5px 0 10px rgba(0,0,0,.25); }
   /* Thin outlined cell around each item */
-  .panel-cell{ position:absolute; top:24px; height:375px; border-radius:20px;
+  .panel-cell{ position:absolute; top:22px; height:337px; border-radius:18px;
     border:1px solid #e59235; pointer-events:none; }
-  #cell0{ left:26px; width:295px; }
-  #cell1{ left:332px; width:307px; }
+  #cell0{ left:23px; width:265px; }
+  #cell1{ left:298px; width:276px; }
   /* Tutorial: the board springs open at the start; the twigs appear once it's open. */
   #panel.open{ animation:panelOpen .55s cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes panelOpen{ 0%{ transform:scale(.2); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
   .slot{ position:absolute; width:1px; height:1px; }
-  #slot0{ left:173px; top:212px; } #slot1{ left:486px; top:212px; }
+  #slot0{ left:156px; top:190px; } #slot1{ left:437px; top:190px; }
+  /* Tutorial variant: the larger board (Figma 485:216) */
+  #stage.teach #panel{ left:1125px; top:629px; width:663px; height:422px; }
+  #stage.teach .panel-frame{ border-radius:38px; }
+  #stage.teach .panel-inner{ inset:12px 14px; border-radius:28px; }
+  #stage.teach .panel-cell{ top:24px; height:375px; border-radius:20px; }
+  #stage.teach #cell0{ left:26px; width:295px; }
+  #stage.teach #cell1{ left:332px; width:307px; }
+  #stage.teach #slot0{ left:173px; top:212px; }
+  #stage.teach #slot1{ left:486px; top:212px; }
 
   /* ---------- Draggable/tappable item ---------- */
   .item{ position:absolute; z-index:41; cursor:pointer;
@@ -216,11 +227,12 @@
   /* Fills from the bottom up as the nest is built. */
   .prog-fill{ position:relative; width:100%; height:0%; flex:0 0 auto; border-radius:28px; will-change:height;
     min-height:45px;                             /* a visible starter puck, per the design */
-    background:#adc9fa;
+    background:linear-gradient(0deg,#3e8914 0%,#5cb52e 45%,#a8e063 100%);
+    box-shadow:inset 0 2px 3px rgba(255,255,255,.5), inset 0 -2px 4px rgba(30,80,10,.45);
     transition:height .8s cubic-bezier(.22,.61,.36,1); }
   /* The little nest sits at the base of the meter (the goal marker). */
-  .prog-nest{ position:absolute; left:50%; bottom:-27px; transform:translateX(-50%);
-    width:188px; height:auto; pointer-events:none; z-index:2;
+  .prog-nest{ position:absolute; left:50%; bottom:-13px; transform:translateX(-50%);
+    width:89px; height:auto; pointer-events:none; z-index:2;
     filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
 
   /* ---------- Background blur during character feedback ---------- */
@@ -779,7 +791,7 @@ var LEVELS = [
   // (pinned in the left cell of the bottom-right panel), so the feather always
   // takes the other slot.
   { id:'feather-twig', ask:'long', fixed:true, items:[
-      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1255, top:750},
+      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1305, top:800},
       {src:ART.featherLong, length:'long',  noun:'feather', w:270, h:245, rot:8} ] }
 ];
 
