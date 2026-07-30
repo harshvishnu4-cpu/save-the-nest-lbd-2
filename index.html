@@ -46,10 +46,10 @@
   /* Box sized so the VISIBLE nest art (the dense nest trims to 92%x84% of its
      canvas) lands exactly on the design's 672,321 379x238 rect at full scale. */
   #nest{
-    position:absolute;     left: 646px; top: 299px; width:415px; height:282px;
+    position:absolute;     left: 875px; top: 299px; width:339px; height:230px;
     z-index:4; transform-origin:50% 88%; transform:scale(.85);   /* a touch under the design box */
     transition:transform .9s cubic-bezier(.34,1.7,.4,1); }
-  .nest-shadow{ position:absolute; left:750px; top:484px; width:258px; height:51px;
+  .nest-shadow{ position:absolute; left:960px; top:450px; width:211px; height:42px;
     z-index:3; pointer-events:none; }
   .nest-inner{ position:absolute; inset:0; transform-origin:50% 88%; }
   .nest-base, .nest-built, .nest-dense{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
@@ -61,7 +61,7 @@
     transform-origin:50% 100%; transform:translateY(16px) scale(1.03); }
   .nest-dense{ z-index:3; opacity:0; transition:opacity .8s ease; }   /* dense nest — final level only */
   .nest-materials{ position:absolute; inset:0; z-index:4; }
-  .nest-materials img{ position:absolute; width:80px; height:auto;   /* scaled to the 380px nest */
+  .nest-materials img{ position:absolute; width:65px; height:auto;   /* scaled to the ~310px nest */
     filter:drop-shadow(0 2px 2px rgba(0,0,0,.25)); }
   .nest-inner.pop{ animation:nestPop .7s cubic-bezier(.34,1.6,.5,1); }
   .nest-inner.shake{ animation:nestShake .5s ease-in-out; }
@@ -79,7 +79,7 @@
   #qbanner .frame{ position:absolute; inset:0; width:100%; height:100%; }
   #qtext{ position:relative; padding:0 70px; text-align:center;
     font-family:'Fredoka One','Baloo 2',cursive;
-    font-size:55px; font-weight:400; color:#6e4622; letter-spacing:.3px; line-height:1; }
+    font-size:40px; font-weight:400; color:#6e4622; letter-spacing:.3px; line-height:1; }
   #qtext .hl{ color:#ff7600; }
   #qbanner.pop{ animation:bannerPop .5s cubic-bezier(.34,1.56,.64,1); }
   @keyframes bannerPop{ 0%{ transform:scale(.94); } 60%{ transform:scale(1.03); } 100%{ transform:scale(1); } }
@@ -640,6 +640,29 @@ function unlockVoices(){
   });
 }
 
+/* Pause the game when the tab is hidden: every sound stops (music, a voice
+   line mid-sentence, the celebration chirp loop, one-shot sfx) and the idle
+   nudge is held, then music/voice pick up where they left off on return.
+   Gameplay itself is tap-driven, so it simply waits for the child. */
+var pausedBgm=false, pausedVo=false, pausedChirp=false;
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){
+    pausedBgm = !bgm.paused;            if(pausedBgm) bgm.pause();
+    pausedVo  = !!(voCurrent && !voCurrent.paused); if(pausedVo) voCurrent.pause();
+    pausedChirp = !winChirp.paused;     if(pausedChirp) winChirp.pause();
+    [pewClip, tapClip, nestClip, playBtnClip].forEach(function(a){   // momentary sfx: just stop
+      try{ if(!a.paused){ a.pause(); a.currentTime=0; } }catch(e){} });
+    try{ if(audioCtx) audioCtx.suspend(); }catch(e){}
+    stopIdle();                         // no surprise hand hint queued while away
+  } else {
+    try{ if(audioCtx) audioCtx.resume(); }catch(e){}
+    if(pausedBgm && soundOn){ var p=bgm.play(); if(p&&p.catch) p.catch(function(){}); }
+    if(pausedVo && voCurrent && soundOn){ try{ var v=voCurrent.play(); if(v&&v.catch) v.catch(function(){}); }catch(e){} }
+    if(pausedChirp && soundOn){ try{ var c=winChirp.play(); if(c&&c.catch) c.catch(function(){}); }catch(e){} }
+    armIdle();                          // safe no-op outside an active round
+  }
+});
+
 /* A cheerful bird (real GIF art) that glides slowly across on a correct answer.
    It cycles through the three birds so a DIFFERENT one appears each time. */
 var BIRD_GIFS = ['assets/flying bird 1.webp', 'assets/flying bird 2.webp', 'assets/flying bird 3.webp'];
@@ -677,7 +700,7 @@ function flyBird(){
 var winBirds=[];
 function spawnWinBirds(){
   clearWinBirds();
-  var cx=862, cy=440, Rx=380, Ry=300;   // ellipse centred on the full nest
+  var cx=1044, cy=415, Rx=380, Ry=300;  // ellipse centred on the full nest
   var N=72;                              // samples per lap
   BIRD_GIFS.forEach(function(src,idx){
     var w=[260,245,255][idx], lap=[14000,15500,17000][idx];
@@ -1184,8 +1207,8 @@ function popStar(x,y){
 function nestTargetPoint(){
   var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
   var s = NEST_MIN + (NEST_MAX-NEST_MIN)*frac;
-  var ox=646+415/2, oy=299+282*0.88;    // the scale origin is a fixed stage point (nest box 646,299 415x282)
-  var bowlY=299+282*0.5;                 // bowl centre in the unscaled nest box
+  var ox=875+339/2, oy=299+230*0.88;    // the scale origin is a fixed stage point (nest box 875,299 339x230)
+  var bowlY=299+230*0.5;                 // bowl centre in the unscaled nest box
   return { x:ox, y:oy-(oy-bowlY)*s };
 }
 // A learned twig flies off the board: a gentle arc into the nest, shrinking
