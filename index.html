@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Save the Nest — Long &amp; Short</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Fredoka+One&display=swap');
 
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html,body{
@@ -43,17 +43,25 @@
   /* ---------- Nest (centre, on the branch) ----------
      #nest holds the persistent grow-scale (small -> full, one step per level);
      .nest-inner does the little pop each time a piece is added. */
+  /* Box sized so the VISIBLE nest art (the dense nest trims to 92%x84% of its
+     canvas) lands exactly on the design's 672,321 379x238 rect at full scale. */
   #nest{
-    position:absolute;     left: 575px; top: 419px; width:580px; height:470px;
-    z-index:4; transform-origin:50% 88%; transform:scale(.42);
+    position:absolute;     left: 646px; top: 299px; width:415px; height:282px;
+    z-index:4; transform-origin:50% 88%; transform:scale(1);   /* starts at the design size */
     transition:transform .9s cubic-bezier(.34,1.7,.4,1); }
+  .nest-shadow{ position:absolute; left:750px; top:484px; width:258px; height:51px;
+    z-index:3; pointer-events:none; }
   .nest-inner{ position:absolute; inset:0; transform-origin:50% 88%; }
   .nest-base, .nest-built, .nest-dense{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
-  .nest-base{ z-index:1; }
-  .nest-built{ z-index:2; opacity:0; transition:opacity .7s ease; }   /* fuller nest, fades in each level */
+  /* Each nest art trims differently inside its canvas — nudge the small and
+     fuller nests so all three stages share the SAME visible footprint (bottom
+     resting on the branch line, ~380px wide at full scale). */
+  .nest-base{ z-index:1; transform-origin:50% 100%; transform:translateY(25px) scale(1.1); }
+  .nest-built{ z-index:2; opacity:0; transition:opacity .7s ease;   /* fuller nest, fades in each level */
+    transform-origin:50% 100%; transform:translateY(16px) scale(1.03); }
   .nest-dense{ z-index:3; opacity:0; transition:opacity .8s ease; }   /* dense nest — final level only */
   .nest-materials{ position:absolute; inset:0; z-index:4; }
-  .nest-materials img{ position:absolute; width:120px; height:auto;
+  .nest-materials img{ position:absolute; width:80px; height:auto;   /* scaled to the 380px nest */
     filter:drop-shadow(0 2px 2px rgba(0,0,0,.25)); }
   .nest-inner.pop{ animation:nestPop .7s cubic-bezier(.34,1.6,.5,1); }
   .nest-inner.shake{ animation:nestShake .5s ease-in-out; }
@@ -65,37 +73,42 @@
 
   /* ---------- Question banner (top, centered) ----------
      Sized to the question-box art's natural 1200x179 aspect so it isn't squashed. */
-  #qbanner{ position:absolute; left:460px; top:34px; width:1000px; height:149px; z-index:20;
+  #qbanner{ position:absolute; left:567px; top:44px; width:850px; height:142px; z-index:20;
     display:flex; align-items:center; justify-content:center; transition:opacity .35s ease; }
   #qbanner .frame{ position:absolute; inset:0; width:100%; height:100%; }
-  #qtext{ position:relative; padding:0 90px; text-align:center;
-    font-size:44px; font-weight:800; color:#5a3b1c; letter-spacing:.3px; line-height:1; }
-  #qtext .hl{ color:#ef7d23; text-transform:uppercase; }
+  #qtext{ position:relative; padding:0 70px; text-align:center;
+    font-family:'Fredoka One','Baloo 2',cursive;
+    font-size:55px; font-weight:400; color:#6e4622; letter-spacing:.3px; line-height:1; }
+  #qtext .hl{ color:#ff7600; }
   #qbanner.pop{ animation:bannerPop .5s cubic-bezier(.34,1.56,.64,1); }
   @keyframes bannerPop{ 0%{ transform:scale(.94); } 60%{ transform:scale(1.03); } 100%{ transform:scale(1); } }
 
-  /* ---------- Item panel (right) — CSS-drawn placeholder board ---------- */
-  #panel{ position:absolute; left: 1612px;
-    top: 150px;
-    width: 309px; height:780px; z-index:40;     /* right edge 1921 — 1px past the stage edge (clipped) */
+  /* ---------- Item panel (bottom-right, two cells side by side) ---------- */
+  #panel{ position:absolute; left: 1125px;
+    top: 629px;
+    width: 663px; height:422px; z-index:40;
     transition:opacity .6s ease; }               /* fades out for the win celebration */
-  /* Glossy wooden/orange frame */
-  .panel-frame{ position:absolute; inset:0; border-radius:54px;
-    background:linear-gradient(180deg,#e6a85e 0%,#d4924a 50%,#bf7a31 100%);
-    box-shadow:0 16px 30px rgba(0,0,0,.4),
-               inset 0 4px 4px rgba(255,229,186,.75),
-               inset 0 -7px 9px rgba(120,68,18,.5); }
+  /* Orange frame with the big soft drop shadow */
+  .panel-frame{ position:absolute; inset:0; border-radius:38px;
+    background:#e59235;
+    box-shadow:0 13px 59px rgba(0,0,0,.25); }
   /* Warm cream inset with a soft recessed shadow */
-  .panel-inner{ position:absolute; inset:21px; border-radius:38px;
-    background:linear-gradient(180deg,#f8efd6 0%,#efe1bb 100%);
-    box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),
-               inset 0 9px 20px rgba(150,105,45,.2),
-               inset 0 -9px 20px rgba(150,105,45,.12); }
+  .panel-inner{ position:absolute; inset:12px 14px; border-radius:28px;
+    background:#f7ebc3;
+    box-shadow:inset 0 6px 3px rgba(0,0,0,.25),
+               inset 0 -6px 3px rgba(0,0,0,.25),
+               inset 5px 0 10px rgba(0,0,0,.25),
+               inset -5px 0 10px rgba(0,0,0,.25); }
+  /* Thin outlined cell around each item */
+  .panel-cell{ position:absolute; top:24px; height:375px; border-radius:20px;
+    border:1px solid #e59235; pointer-events:none; }
+  #cell0{ left:26px; width:295px; }
+  #cell1{ left:332px; width:307px; }
   /* Tutorial: the board springs open at the start; the twigs appear once it's open. */
   #panel.open{ animation:panelOpen .55s cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes panelOpen{ 0%{ transform:scale(.2); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
-  .slot{ position:absolute; left:50%; width:1px; height:1px; }
-  #slot0{ top:27%; } #slot1{ top:72%; }
+  .slot{ position:absolute; width:1px; height:1px; }
+  #slot0{ left:173px; top:212px; } #slot1{ left:486px; top:212px; }
 
   /* ---------- Draggable/tappable item ---------- */
   .item{ position:absolute; z-index:41; cursor:pointer;
@@ -137,8 +150,8 @@
 
   /* ---------- "Long"/"Short" tap label (brown text, on the panel) ---------- */
   .len-label{ position:absolute; z-index:45; transform:translateX(-50%);
-    font-size:52px; font-weight:800; line-height:1; color:#6b4a2b;
-    text-shadow:0 2px 0 rgba(255,255,255,.55);
+    font-family:'Fredoka One','Baloo 2',cursive;
+    font-size:55px; font-weight:400; line-height:1; color:#ff7600;
     white-space:nowrap; pointer-events:none; will-change:transform, opacity;
     animation:labelPop .42s cubic-bezier(.34,1.8,.5,1) both; }
   @keyframes labelPop{ 0%{ transform:translateX(-50%) scale(0) translateY(14px); }
@@ -176,17 +189,21 @@
 
   /* ---------- Nest-building meter (cream track + growing leafy vine) ----------
      Cream interior (like the banner/tag) so it stands out against the brown tree. */
-  #progress{ position:absolute; left:46px; top:150px; width:64px; height:780px; z-index:8;
-    border-radius:34px; padding:6px; border:5px solid #8a4f1d;
-    background:linear-gradient(180deg,#fdf4dc 0%,#edd9a6 100%);
-    box-shadow:0 8px 16px rgba(0,0,0,.5), inset 0 3px 5px rgba(150,100,40,.3),
-               inset 0 -2px 4px rgba(255,255,255,.45);
+  #progress{ position:absolute; left:92px; top:146px; width:58px; height:827px; z-index:8;
+    border-radius:38px; padding:8px 6px;
+    background:#fef9ef;
+    box-shadow:0 13px 59px rgba(0,0,0,.25);
     display:flex; flex-direction:column; justify-content:flex-end;
     transition:opacity .6s ease; }               /* fades out for the win celebration */
+  /* Recessed tan track inside the cream bar */
+  #progress::before{ content:''; position:absolute; left:6px; right:6px; top:8px; bottom:8px;
+    border-radius:28px; background:#eddaba; pointer-events:none;
+    box-shadow:inset 0 6px 3px rgba(0,0,0,.25), inset 0 -6px 3px rgba(0,0,0,.25),
+               inset 5px 0 10px rgba(0,0,0,.25), inset -5px 0 10px rgba(0,0,0,.25); }
   #progress.bump{ animation:progBump .5s cubic-bezier(.34,1.7,.5,1); }
   @keyframes progBump{ 0%{ transform:scale(1); } 42%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
   /* Small "loading" shimmer: a faint light band drifts up the track on a loop. */
-  #progress::after{ content:''; position:absolute; left:6px; right:6px; bottom:6px;
+  #progress::after{ content:''; position:absolute; left:6px; right:6px; bottom:8px;
     height:90px; border-radius:24px; pointer-events:none; opacity:0;
     background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
     animation:progShimmer 2.8s ease-in-out infinite; will-change:transform, opacity; }
@@ -194,15 +211,15 @@
     0%{ transform:translateY(0); opacity:0; }
     18%{ opacity:.9; }
     78%{ opacity:.9; }
-    100%{ transform:translateY(-658px); opacity:0; } }
+    100%{ transform:translateY(-721px); opacity:0; } }
   /* Fills from the bottom up as the nest is built. */
   .prog-fill{ position:relative; width:100%; height:0%; flex:0 0 auto; border-radius:28px; will-change:height;
-    background:linear-gradient(0deg,#1f6fc8 0%,#3aa0ee 50%,#8fd2ff 100%);
-    box-shadow:inset 0 -2px 4px rgba(255,255,255,.55), inset 0 3px 5px rgba(15,70,140,.5);
+    min-height:45px;                             /* a visible starter puck, per the design */
+    background:#adc9fa;
     transition:height .8s cubic-bezier(.22,.61,.36,1); }
-  /* The little nest rides the top of the rising fill as the meter grows. */
-  .prog-nest{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%);
-    width:76px; height:auto; pointer-events:none;
+  /* The little nest sits at the base of the meter (the goal marker). */
+  .prog-nest{ position:absolute; left:50%; bottom:-27px; transform:translateX(-50%);
+    width:188px; height:auto; pointer-events:none; z-index:2;
     filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
 
   /* ---------- Background blur during character feedback ---------- */
@@ -221,7 +238,8 @@
   #mascot.show{ opacity:1; }
   .mascot-img{ width:100%; height:auto; display:block; }
 
-  #dialogue{ position:absolute; left:545px; top:150px; width:485px; height:485px; z-index:47;
+  /* Above the elephant, clear of the nest on the branch (nest sits at ~767-957px). */
+  #dialogue{ position:absolute; left:280px; top:40px; width:485px; height:485px; z-index:47;
     opacity:0; transform:scale(.5); transform-origin:25% 100%; pointer-events:none;
     will-change:transform, opacity; }
   #dialogue.show{ animation:bubblePop .55s cubic-bezier(.2,.72,.26,1) .1s forwards; }
@@ -336,10 +354,13 @@
 <body>
 <div id="wrap">
   <div id="stage">
-    <img class="bg" src="assets/background.webp" alt="">
+    <img class="bg" src="assets/background 2.webp" alt="">
 
     <!-- Ambient falling leaves (behind all gameplay) -->
     <div id="leaves" aria-hidden="true"></div>
+
+    <!-- Soft shadow under the nest (sits on the branch) -->
+    <img class="nest-shadow" src="assets/nest shadow.svg" alt="" aria-hidden="true">
 
     <!-- Nest -->
     <div id="nest">
@@ -353,13 +374,15 @@
 
     <!-- Question banner (top-left) -->
     <div id="qbanner">
-      <img class="frame" src="assets/question box.webp" alt="">
+      <img class="frame" src="assets/question banner 2.webp" alt="">
       <div id="qtext"></div>
     </div>
 
-    <!-- Item panel (right) — CSS-drawn placeholder -->
+    <!-- Item panel (bottom-right) — CSS-drawn board with two item cells -->
     <div id="panel">
       <div class="panel-frame"><div class="panel-inner"></div></div>
+      <div class="panel-cell" id="cell0"></div>
+      <div class="panel-cell" id="cell1"></div>
       <div class="slot" id="slot0"></div>
       <div class="slot" id="slot1"></div>
     </div>
@@ -367,7 +390,8 @@
     <!-- Nest-building meter: cream track + green vine, with the "Nest" sign
          riding the leading edge as it fills. -->
     <div id="progress">
-      <div class="prog-fill"><img class="prog-nest" src="assets/dens nest.webp" alt="Nest"></div>
+      <div class="prog-fill"></div>
+      <img class="prog-nest" src="assets/dens nest.webp" alt="Nest">
     </div>
 
     <!-- Background blur shown while the character is speaking -->
@@ -498,10 +522,17 @@ function tone(f,d,type,vol,when){ if(!soundOn) return; type=type||'sine'; vol=vo
     g.gain.exponentialRampToValueAtTime(.0001,t+d);
     o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+d+.05);
   }catch(e){} }
-// Real chirp recordings: a short quiet burst for the pew-pew fly-by, and a
-// longer gentle loop that plays under the final celebration screen.
-var pewClip=new Audio('audio/bird chirp.mp3'); pewClip.preload='auto'; pewClip.volume=0.35;
-var winChirp=new Audio('audio/bird chirp long.mp3'); winChirp.preload='auto'; winChirp.volume=0.3; winChirp.loop=true;
+// Recorded one-shot sfx (each restarts from the top on every play).
+function sfxClip(src, vol){ var a=new Audio(src); a.preload='auto'; a.volume=vol; return a; }
+function playClip(a){ if(!soundOn) return;
+  try{ a.currentTime=0; var p=a.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }
+// Chirps: a short quiet burst for the pew-pew fly-by, and a longer gentle
+// loop that plays under the final celebration screen.
+var pewClip=sfxClip('audio/bird chirp.mp3', 0.35);
+var winChirp=sfxClip('audio/bird chirp long.mp3', 0.3); winChirp.loop=true;
+var playBtnClip=sfxClip('audio/Play button sfx.mp3', 0.6);   // Play button press
+var tapClip    =sfxClip('audio/element tap sfx.mp3', 0.5);   // tapping an item
+var nestClip   =sfxClip('audio/nest bigger sfx.mp3', 0.6);   // a piece lands, nest grows
 var sfx={
   tap:    function(){ tone(620,.08,'square',.12); },
   correct:function(){ tone(523,.12,'sine',.2,0); tone(659,.12,'sine',.2,.1); tone(784,.2,'sine',.22,.2); tone(1047,.3,'sine',.2,.32); },
@@ -542,7 +573,7 @@ var sfx={
    tutorial's "twig" lines use the character-voice recordings; the play-round
    banners use the "item" ones. Lines without a recording simply play nothing. */
 var VO_SRC={
-  'save the nest':'audio/Save the Nest.ogg',
+  'save the nest':'audio/Save the Nest.mp3',   // normalized louder + lead-silence trimmed
   'let us start fixing the nest':'audio/Let us start fixing the nest!.ogg',
   'tap the long twig':'audio/Tap the long twig.ogg',
   'tap the short twig':'audio/Tap the short twig.ogg',
@@ -596,7 +627,8 @@ function playVoiceFor(html){
 // on that same tap (a muted play/pause per clip) so later timer-driven
 // playback is allowed too.
 function unlockVoices(){
-  Object.keys(voClips).map(function(s){ return voClips[s]; }).concat([pewClip, winChirp]).forEach(function(a){
+  Object.keys(voClips).map(function(s){ return voClips[s]; })
+    .concat([pewClip, winChirp, tapClip, nestClip]).forEach(function(a){
     if(a===voCurrent || !a.paused) return;   // don't touch a clip that's really speaking
     try{ a.muted=true;
       var p=a.play();
@@ -644,7 +676,7 @@ function flyBird(){
 var winBirds=[];
 function spawnWinBirds(){
   clearWinBirds();
-  var cx=865, cy=590, Rx=380, Ry=300;   // ellipse centred on the full nest
+  var cx=862, cy=440, Rx=380, Ry=300;   // ellipse centred on the full nest
   var N=72;                              // samples per lap
   BIRD_GIFS.forEach(function(src,idx){
     var w=[260,245,255][idx], lap=[14000,15500,17000][idx];
@@ -717,9 +749,10 @@ var LEVELS = [
       {src:ART.leafLong,  length:'long',  noun:'leaf', w:225, rot:6},
       {src:ART.leafShort, length:'short', noun:'leaf', w:200, rot:-6} ] },
   // Level 6 — long feather vs short twig. Fixed layout: the twig is hand-tuned
-  // (pinned at 1721,313), so the feather always takes the bottom slot.
+  // (pinned in the left cell of the bottom-right panel), so the feather always
+  // takes the other slot.
   { id:'feather-twig', ask:'long', fixed:true, items:[
-      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1721, top:313},
+      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1255, top:750},
       {src:ART.featherLong, length:'long',  noun:'feather', w:270, h:245, rot:8} ] }
 ];
 
@@ -736,7 +769,8 @@ var nestInner= nestEl.querySelector('.nest-inner');
 var nestBuilt= nestEl.querySelector('.nest-built');
 var nestDense= nestEl.querySelector('.nest-dense');
 var materials= nestEl.querySelector('.nest-materials');
-var NEST_MIN = 0.42;   // nest scale at the start (small) -> grows to 1.0 (full)
+var NEST_MIN = 1.05;   // nest scale when the levels begin (design size + the tutorial twigs)
+var NEST_MAX = 1.25;   // fully built — modest growth so it never dwarfs the branch
 var qbanner  = document.getElementById('qbanner');
 var qtext    = document.getElementById('qtext');
 var slot0    = document.getElementById('slot0');
@@ -997,6 +1031,7 @@ function rewardTwig(item){
 
 function handleTap(item){
   if(roundLocked) return;
+  playClip(tapClip);              // every item tap gets the little tap sound
   var lvl=curLevel();
 
   // ---------------- Guided tutorial (2 steps) ----------------
@@ -1028,7 +1063,7 @@ function handleTap(item){
         // game over, THEN the leaf wipe carries them into the real levels.
         clearLabels();
         flyPairToNest(item, function(){
-          nestEl.style.transform='scale(.52)';   // the twigs made the nest bigger
+          nestEl.style.transform='scale(1.05)';  // the twigs made the nest bigger
           panelEl.style.opacity='0';             // empty board fades out — elephant hands over alone
           guide('Now, it is your turn!', true, function(){
             setTimeout(function(){ leafTransition(function(){ hideMascot(); nextRound(true); }); }, READ_PAUSE);
@@ -1097,7 +1132,7 @@ function labelTwig(item){
   var panel=document.getElementById('panel');
   var lh=b.offsetHeight||56;
   var top = cy + halfH + 12;                                   // below the twig
-  var maxTop = panel.offsetTop + panel.offsetHeight - lh - 24; // keep inside the panel
+  var maxTop = panel.offsetTop + panel.offsetHeight - lh - 37; // design puts labels at y≈959
   if(top > maxTop) top = maxTop;
   b.style.left=cx+'px'; b.style.top=top+'px';
 }
@@ -1147,9 +1182,9 @@ function popStar(x,y){
 // grow-scale (the nest box is fixed; only its scale changes, around 50% 88%).
 function nestTargetPoint(){
   var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
-  var s = NEST_MIN + (1-NEST_MIN)*frac;
-  var ox=575+580/2, oy=419+470*0.88;    // the scale origin is a fixed stage point
-  var bowlY=419+470*0.5;                 // bowl centre in the unscaled nest box
+  var s = NEST_MIN + (NEST_MAX-NEST_MIN)*frac;
+  var ox=646+415/2, oy=299+282*0.88;    // the scale origin is a fixed stage point (nest box 646,299 415x282)
+  var bowlY=299+282*0.5;                 // bowl centre in the unscaled nest box
   return { x:ox, y:oy-(oy-bowlY)*s };
 }
 // A learned twig flies off the board: a gentle arc into the nest, shrinking
@@ -1177,6 +1212,7 @@ function flyPairToNest(leadItem, onAllLanded){
   activeItems.forEach(function(el){
     flyToNest(el, el===leadItem?150:450, function(){
       addMaterial(el._def);
+      playClip(nestClip);   // each landing twig pops the nest a little bigger
       nestInner.classList.remove('pop'); void nestInner.offsetWidth; nestInner.classList.add('pop');
       if(++landed===activeItems.length && onAllLanded) onAllLanded();
     }, 1900);   // tutorial pacing: an extra-gentle glide
@@ -1202,6 +1238,7 @@ function addMaterial(def){
 
 function advanceBuild(){
   built++;
+  playClip(nestClip);   // the nest grows — its little "bigger!" sound
   var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
   // The nest grows a bit bigger every level; the fuller art swaps in FULLY once
   // past the halfway point (holding it at partial opacity leaves a ghostly
@@ -1209,7 +1246,7 @@ function advanceBuild(){
   // level the rich "dense nest" art fades in.
   nestBuilt.style.opacity = frac>=0.5 ? 1 : 0;                     // small -> fuller nest
   if(built>=totalBuild) nestDense.style.opacity = 1;               // final: dense nest
-  nestEl.style.transform = 'scale(' + (NEST_MIN + (1-NEST_MIN)*frac).toFixed(3) + ')';
+  nestEl.style.transform = 'scale(' + (NEST_MIN + (NEST_MAX-NEST_MIN)*frac).toFixed(3) + ')';
   nestInner.classList.remove('pop'); void nestInner.offsetWidth; nestInner.classList.add('pop');
   progFill.style.height=(frac*100)+'%';
   progressEl.classList.remove('bump'); void progressEl.offsetWidth; progressEl.classList.add('bump');
@@ -1280,7 +1317,7 @@ var celebTimer=null;
 function win(){
   hideMascot(); stopIdle(); clearItems();
   qbanner.style.opacity='0';            // no stale prompt over the celebration
-  nestBuilt.style.opacity='1'; nestDense.style.opacity='1'; nestEl.style.transform='scale(1)';   // full dense nest
+  nestBuilt.style.opacity='1'; nestDense.style.opacity='1'; nestEl.style.transform='scale('+NEST_MAX+')';   // full dense nest
   document.getElementById('panel').style.opacity='0';   // clear the stage —
   progressEl.style.opacity='0';                          // just the nest and its birds
   // Wait for the final answer's pew-pew fly-by to leave the screen, THEN the
@@ -1383,9 +1420,29 @@ function leafTransition(onCovered){
     }, 220);   // hold on the full green cover
   }, maxIn+DUR+60);
 }
+// "Save the Nest!" announcement on the TITLE screen, before the Play press.
+// Browsers block sound until the user's first interaction, so the page-load
+// attempt usually fails silently — then the FIRST tap anywhere on the title
+// screen speaks it. Whichever path wins, it plays only once.
+var titleAnnounced=false;
+function announceTitle(fromGesture){
+  if(titleAnnounced || !soundOn) return;
+  if(!introEl.classList.contains('show')) return;   // title screen already gone
+  var a=voClips[VO_SRC['save the nest']]; if(!a) return;
+  if(fromGesture){ titleAnnounced=true; playVoiceFor('Save the Nest!'); return; }
+  try{                     // silent page-load attempt: only mark done if it really played
+    a.currentTime=0;
+    var p=a.play();
+    if(p&&p.then) p.then(function(){ titleAnnounced=true; voCurrent=a; })
+                   .catch(function(){});
+    else { titleAnnounced=true; voCurrent=a; }
+  }catch(e){}
+}
+document.addEventListener('pointerdown', function(){ announceTitle(true); });
+
 function startGame(){
-  ac(); startMusic(); sfx.click();
-  playVoiceFor('Save the Nest!');   // title announced once, right as the game starts
+  ac(); startMusic(); playClip(playBtnClip);
+  announceTitle(true);   // fallback: if Play is the very first tap, speak it now
   unlockVoices();
   leafTransition(function(){
     document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
@@ -1418,6 +1475,7 @@ resolveLevels().then(function(out){
   levels=out; loadingEl.classList.add('hide');
   if(levels.length===0){ loadingEl.classList.remove('hide'); loadingEl.textContent='No item art found in /assets.'; return; }
   console.info('[Save the Nest] '+levels.length+' playable round(s).');
+  announceTitle(false);   // try to speak the title on load (works where autoplay is allowed)
 });
 </script>
 </body>
