@@ -102,9 +102,11 @@
                inset 0 -6px 3px rgba(0,0,0,.25),
                inset 5px 0 10px rgba(0,0,0,.25),
                inset -5px 0 10px rgba(0,0,0,.25); }
-  /* Thin outlined cell around each item */
+  /* Thin outlined cell around each item. The WHOLE cell is the tap target —
+     the art (a slender feather especially) is far too small a target for a
+     child's finger, so a tap anywhere on the card counts. */
   .panel-cell{ position:absolute; top:22px; height:337px; border-radius:18px;
-    border:1px solid #e59235; pointer-events:none; }
+    border:1px solid #e59235; cursor:pointer; }
   #cell0{ left:23px; width:265px; }
   #cell1{ left:298px; width:276px; }
   /* Tutorial: the board springs open at the start; the twigs appear once it's open. */
@@ -587,6 +589,16 @@ var sfx={
     src.connect(f); f.connect(g); g.connect(ctx.destination);
     src.start(t); src.stop(t+dur+.05);
   }catch(e){} },
+  // Bubble "pop" as each item appears on the board.
+  pop:    function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return; try{
+    var t=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(380,t);
+    o.frequency.exponentialRampToValueAtTime(980,t+.06);
+    g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.3,t+.012);
+    g.gain.exponentialRampToValueAtTime(.0001,t+.14);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.17);
+  }catch(e){} },
   // Springy "boing" for the item board bouncing open.
   boing:  function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return; try{
     var t=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain();
@@ -612,7 +624,6 @@ var sfx={
    tutorial's "twig" lines use the character-voice recordings; the play-round
    banners use the "item" ones. Lines without a recording simply play nothing. */
 var VO_SRC={
-  'save the nest':'audio/Save the Nest.mp3',   // normalized louder + lead-silence trimmed
   'let us start fixing the nest':'audio/Let us start fixing the nest!.ogg',
   'tap the long twig':'audio/Tap the long twig.ogg',
   'tap the short twig':'audio/Tap the short twig.ogg',
@@ -768,8 +779,8 @@ function clearWinBirds(){ winBirds.forEach(function(b){ b.remove(); }); winBirds
 var ART = {
   twigLong:'assets/long twig.webp',
   twigShort:'assets/small twig.webp',
-  featherLong:'assets/long feather 2.webp',   // blue feather
-  featherShort:'assets/small feather.webp',   // red feather
+  featherLong:'assets/feather long.webp',     // blue feather  (trimmed 207x955)
+  featherShort:'assets/feather short.webp',   // red feather   (trimmed 233x920)
   leafLong:'assets/Long leaf.webp',
   leafShort:'assets/short leaf.webp'
 };
@@ -788,37 +799,38 @@ var LEVELS = [
   // right cell — with the Short/Long labels on their own row underneath.
   { id:'tutorial', teach:true,
     items:[
-      {src:ART.twigShort,length:'short', noun:'twig', w:134, rot:50, left:1231, top:790},
-      {src:ART.twigLong, length:'long',  noun:'twig', w:268, rot:90, left:1477, top:774} ],
+      {src:ART.twigShort,length:'short', noun:'twig', w:157, rot:50, left:1220, top:747},
+      {src:ART.twigLong, length:'long',  noun:'twig', w:297, rot:90, left:1462, top:756} ],
     steps:[
       { instr:'Tap the <span class="hl">long</span> twig.',  bubble:'Tap the<br><span class="hl">long</span> twig.', need:'long'  },
       { instr:'Tap the <span class="hl">short</span> twig.', bubble:'Tap the<br><span class="hl">short</span> twig.', need:'short' }
     ] },
-  // Difficulty ramps: clear length differences first, subtler ones later.
-  // `h` stretches the art's length only (feather art is vertical), keeping the
-  // item's width — thickness — the same, so LENGTH is the only cue.
+  // Difficulty ramps: clear length differences first, subtler ones later. `w`
+  // is the art's container width — the feather art is slender and trimmed, so
+  // a small `w` still gives a long feather. On-screen lengths are noted per
+  // item; the long:short ratio narrows level by level (1.57 -> 1.35 -> 1.22).
   // Level 2 — long (blue) feather vs short (red) feather (clear difference)
   { id:'feather-feather', ask:'long', items:[
-      {src:ART.featherLong,  length:'long',  noun:'feather', w:255, rot:12},
-      {src:ART.featherShort, length:'short', noun:'feather', w:190, rot:-10} ] },
+      {src:ART.featherLong,  length:'long',  noun:'feather', w:65, rot:12},   // ~300 long
+      {src:ART.featherShort, length:'short', noun:'feather', w:49, rot:-10} ] },  // ~194
   // Level 3 — long twig vs short feather (clear difference; child taps the SHORT one)
   { id:'twig-feather', ask:'short', items:[
-      {src:ART.twigLong,     length:'long',  noun:'twig',    w:290, rot:74},
-      {src:ART.featherShort, length:'short', noun:'feather', w:185, rot:-10} ] },
+      {src:ART.twigLong,     length:'long',  noun:'twig',    w:291, rot:74},  // ~285
+      {src:ART.featherShort, length:'short', noun:'feather', w:44, rot:-10} ] },  // ~174
   // Level 4 — long feather vs short leaf (subtler: the leaf is fatter but shorter)
   { id:'feather-leaf', ask:'long', items:[
-      {src:ART.featherLong, length:'long',  noun:'feather', w:270, rot:8},
-      {src:ART.leafShort,   length:'short', noun:'leaf',    w:175, rot:-6} ] },
+      {src:ART.featherLong, length:'long',  noun:'feather', w:58, rot:8},     // ~267
+      {src:ART.leafShort,   length:'short', noun:'leaf',    w:74, rot:-6} ] },    // ~185
   // Level 5 — long leaf vs short leaf (very small difference; child taps the SHORT one)
   { id:'leaf-leaf', ask:'short', items:[
-      {src:ART.leafLong,  length:'long',  noun:'leaf', w:225, rot:6},
-      {src:ART.leafShort, length:'short', noun:'leaf', w:200, rot:-6} ] },
+      {src:ART.leafLong,  length:'long',  noun:'leaf', w:77, rot:6},          // ~227
+      {src:ART.leafShort, length:'short', noun:'leaf', w:75, rot:-6} ] },     // ~187
   // Level 6 — long feather vs short twig. Fixed layout: the twig is hand-tuned
   // (pinned in the left cell of the bottom-right panel), so the feather always
   // takes the other slot.
   { id:'feather-twig', ask:'long', fixed:true, items:[
-      {src:ART.twigShort,   length:'short', noun:'twig',    w:84, rot:30, left:1305, top:800},
-      {src:ART.featherLong, length:'long',  noun:'feather', w:270, h:245, rot:8} ] }
+      {src:ART.twigShort,   length:'short', noun:'twig',    w:120, rot:30, left:1288, top:806},  // ~138
+      {src:ART.featherLong, length:'long',  noun:'feather', w:63, rot:8} ] }                     // ~290
 ];
 
 var IDLE_MS = 8000;           // hand hint if the child does nothing at all
@@ -957,6 +969,7 @@ function renderRound(slow){
     el.classList.remove('enter','enter-soft'); void el.offsetWidth;
     el.style.pointerEvents='none';
     el.style.animationDelay=(ms/1000)+'s'; el.classList.add(cls||'enter');
+    revealTimers.push(setTimeout(function(){ sfx.pop(); }, ms));   // pops in with a sound
     var cleaned=false, fallback;
     function entered(e){
       if(e && e.target!==el) return;
@@ -1048,10 +1061,12 @@ function clearPulse(){ hideHand(); }
    reliably across mice, trackpads and touchscreens (the old pointerup +
    setPointerCapture path could silently miss on some devices). The child <img>
    has pointer-events:none, so the tap always lands on the .item div. */
-function attachInput(item){
+function bindTap(src, getItem){
   var fired=false;
   function tap(e){
     if(roundLocked) return;
+    var item=getItem(); if(!item) return;
+    if(item.style.pointerEvents==='none') return;   // still entering, or disabled
     if(e && e.preventDefault) e.preventDefault();
     if(fired) return;                 // ignore the click that follows a touchend
     fired=true; setTimeout(function(){ fired=false; }, 350);
@@ -1059,10 +1074,15 @@ function attachInput(item){
     handleTap(item);
   }
   // Resume audio as early as possible (first contact), then handle the tap.
-  item.addEventListener('pointerdown', function(){ if(!roundLocked) ac(); });
-  item.addEventListener('click', tap);
-  item.addEventListener('touchend', tap, {passive:false});
+  src.addEventListener('pointerdown', function(){ if(!roundLocked) ac(); });
+  src.addEventListener('click', tap);
+  src.addEventListener('touchend', tap, {passive:false});
 }
+function attachInput(item){ bindTap(item, function(){ return item; }); }
+// The two cards are tap targets too: items[0] always sits in the left cell and
+// items[1] in the right one, so a tap anywhere on a card picks its item.
+bindTap(document.getElementById('cell0'), function(){ return activeItems[0]; });
+bindTap(document.getElementById('cell1'), function(){ return activeItems[1]; });
 
 function enableItems(on){ activeItems.forEach(function(el){ el.style.pointerEvents = on?'':'none'; }); }
 
@@ -1117,6 +1137,7 @@ function handleTap(item){
       wrongCount++;
       wrongFeedback(item);
       if(wrongCount>=2) revealTimers.push(setTimeout(pulseCorrect, 600));
+      armIdle();          // an idle child still gets the pointing hand
       return;
     }
 
@@ -1292,9 +1313,20 @@ function flyPairToNest(leadItem, onAllLanded){
 
 // A new piece appears woven into the nest (it grows in place — nothing flies
 // across the screen or vanishes).
+// Art is trimmed to different aspects (a twig is wide, a feather is tall), so
+// size each woven-in piece by its own art — longest side ~62px — instead of a
+// single fixed width, which would blow up the slender pieces.
+function sizeMaterial(img){
+  var nw=img.naturalWidth, nh=img.naturalHeight;
+  if(!nw || !nh) return;
+  var s=62/Math.max(nw,nh);
+  img.style.width=(nw*s).toFixed(1)+'px';
+}
 function addMaterial(def){
   var img=document.createElement('img');
   img.src=def.src;
+  if(img.complete && img.naturalWidth) sizeMaterial(img);
+  else img.addEventListener('load', function(){ sizeMaterial(img); });
   var w=nestEl.offsetWidth, h=nestEl.offsetHeight;
   img.style.left=rand(0.20,0.60)*w+'px';
   img.style.top =rand(0.32,0.58)*h+'px';
@@ -1374,10 +1406,14 @@ function stopIdle(){ if(idleTimer){ clearTimeout(idleTimer); idleTimer=null; }
 // Idle nudge in PLAY: ONLY the hand animates (items stay still). The fingertip
 // rests on ONE item — the correct answer — so an idle child gets a real hint
 // (pointing at a fixed slot could aim at the wrong item, since positions shuffle).
-function startNudge(){ var lvl=curLevel(); if(roundLocked || !lvl || lvl.teach || !activeItems.length) return;
+function startNudge(){ var lvl=curLevel(); if(roundLocked || !lvl || !activeItems.length) return;
   sfx.nudge();
+  // In the tutorial the answer is the current step's twig; in play it's lvl.ask.
+  var step = lvl.teach ? lvl.steps[teachStep-1] : null;
+  var want = lvl.teach ? (step && step.need) : lvl.ask;
+  if(!want) return;
   var target=null;
-  activeItems.forEach(function(el){ if(el._def.length===lvl.ask) target=el; });
+  activeItems.forEach(function(el){ if(el._def.length===want) target=el; });
   showHandOnItem(target || activeItems[0]);
 }
 
@@ -1491,29 +1527,8 @@ function leafTransition(onCovered){
     }, 220);   // hold on the full green cover
   }, maxIn+DUR+60);
 }
-// "Save the Nest!" announcement on the TITLE screen, before the Play press.
-// Browsers block sound until the user's first interaction, so the page-load
-// attempt usually fails silently — then the FIRST tap anywhere on the title
-// screen speaks it. Whichever path wins, it plays only once.
-var titleAnnounced=false;
-function announceTitle(fromGesture){
-  if(titleAnnounced || !soundOn) return;
-  if(!introEl.classList.contains('show')) return;   // title screen already gone
-  var a=voClips[VO_SRC['save the nest']]; if(!a) return;
-  if(fromGesture){ titleAnnounced=true; playVoiceFor('Save the Nest!'); return; }
-  try{                     // silent page-load attempt: only mark done if it really played
-    a.currentTime=0;
-    var p=a.play();
-    if(p&&p.then) p.then(function(){ titleAnnounced=true; voCurrent=a; })
-                   .catch(function(){});
-    else { titleAnnounced=true; voCurrent=a; }
-  }catch(e){}
-}
-document.addEventListener('pointerdown', function(){ announceTitle(true); });
-
 function startGame(){
   ac(); startMusic(); playClip(playBtnClip);
-  announceTitle(true);   // fallback: if Play is the very first tap, speak it now
   unlockVoices();
   leafTransition(function(){
     document.getElementById('leaves').style.display='none';   // ambient falling leaves: title screen only, not during gameplay
@@ -1546,7 +1561,6 @@ resolveLevels().then(function(out){
   levels=out; loadingEl.classList.add('hide');
   if(levels.length===0){ loadingEl.classList.remove('hide'); loadingEl.textContent='No item art found in /assets.'; return; }
   console.info('[Save the Nest] '+levels.length+' playable round(s).');
-  announceTitle(false);   // try to speak the title on load (works where autoplay is allowed)
 });
 </script>
 </body>
