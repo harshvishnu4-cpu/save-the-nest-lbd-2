@@ -1019,8 +1019,10 @@ function renderRound(slow){
             // Taps unlock only once the instruction has finished typing —
             // the child listens first, then answers. (No hand yet — it only
             // helps after two mistakes.)
+            // Instruction said → only the asked-for twig unlocks, and the hand
+            // points at it straight away (no waiting for the child to stall).
             guide(lvl.steps[0].bubble, true, function(){
-              roundLocked=false; enableItems(true); armIdle();
+              roundLocked=false; enableStepItem(); armIdle(); pulseCorrect();
             });
           }, 2650));   // bubble comes after both twigs have appeared
         }, READ_PAUSE));
@@ -1092,6 +1094,15 @@ bindTap(document.getElementById('cell0'), function(){ return activeItems[0]; });
 bindTap(document.getElementById('cell1'), function(){ return activeItems[1]; });
 
 function enableItems(on){ activeItems.forEach(function(el){ el.style.pointerEvents = on?'':'none'; }); }
+// Tutorial: ONLY the twig the current step asks for may be tapped — the other
+// one is inert, so the child can't get it wrong while learning the word.
+function enableStepItem(){
+  var lvl=curLevel(); if(!lvl || !lvl.teach) return;
+  var step=lvl.steps[teachStep-1]; if(!step) return;
+  activeItems.forEach(function(el){
+    el.style.pointerEvents = (el._def.length===step.need) ? '' : 'none';
+  });
+}
 
 // Wrong tap: shake the item + error sound. No glow.
 function wrongFeedback(item){
@@ -1172,9 +1183,10 @@ function handleTap(item){
       } else {
         teachStep++;   // earned labels stay — each twig keeps the label from its own tap
         wrongCount=0;  // new step, fresh chances before the hand helps
-        // Next instruction types out; taps stay locked until it's been said.
+        // Next instruction types out; taps stay locked until it's been said,
+        // then only THIS step's twig unlocks with the hand already on it.
         guide(lvl.steps[teachStep-1].bubble, true, function(){
-          roundLocked=false; enableItems(true); armIdle();
+          roundLocked=false; enableStepItem(); armIdle(); pulseCorrect();
         });
       }
     };
