@@ -216,11 +216,13 @@
                inset 5px 0 10px rgba(0,0,0,.25), inset -5px 0 10px rgba(0,0,0,.25); }
   #progress.bump{ animation:progBump .5s cubic-bezier(.34,1.7,.5,1); }
   @keyframes progBump{ 0%{ transform:scale(1); } 42%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
-  /* Small "loading" shimmer: a faint light band drifts up the track on a loop. */
+  /* Shine: a light band sweeps up the track — ONLY when the meter actually
+     grows (JS adds .shine for one pass), so it never pulls focus otherwise. */
   #progress::after{ content:''; position:absolute; left:6px; right:6px; bottom:8px;
     height:90px; border-radius:24px; pointer-events:none; opacity:0;
     background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
-    animation:progShimmer 2.8s ease-in-out infinite; will-change:transform, opacity; }
+    will-change:transform, opacity; }
+  #progress.shine::after{ animation:progShimmer 1.1s ease-out 1; }
   @keyframes progShimmer{
     0%{ transform:translateY(0); opacity:0; }
     18%{ opacity:.9; }
@@ -589,6 +591,10 @@ var sfx={
     src.connect(f); f.connect(g); g.connect(ctx.destination);
     src.start(t); src.stop(t+dur+.05);
   }catch(e){} },
+  // Rising three-note chime for the progress meter climbing a step.
+  meter:  function(){ if(!soundOn) return;
+    [523,698,880].forEach(function(f,i){ tone(f,.16,'triangle',.2,i*.085); });
+  },
   // Bubble "pop" as each item appears on the board.
   pop:    function(){ if(!soundOn) return; var ctx=ac(); if(!ctx) return; try{
     var t=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain();
@@ -624,7 +630,7 @@ var sfx={
    tutorial's "twig" lines use the character-voice recordings; the play-round
    banners use the "item" ones. Lines without a recording simply play nothing. */
 var VO_SRC={
-  'let us start fixing the nest':'audio/Let us start fixing the nest!.ogg',
+  'let us start fixing the nest':'audio/Let us start fixing the nest.mp3',  // levelled: the soft "the" was inaudible
   'tap the long twig':'audio/Tap the long twig.ogg',
   'tap the short twig':'audio/Tap the short twig.ogg',
   'tap the long item':'audio/Tap the long item.ogg',
@@ -799,8 +805,8 @@ var LEVELS = [
   // right cell — with the Short/Long labels on their own row underneath.
   { id:'tutorial', teach:true,
     items:[
-      {src:ART.twigShort,length:'short', noun:'twig', w:157, rot:50, left:1220, top:747},
-      {src:ART.twigLong, length:'long',  noun:'twig', w:297, rot:90, left:1462, top:756} ],
+      {src:ART.twigShort,length:'short', noun:'twig', w:144, rot:50, left:1227, top:747},
+      {src:ART.twigLong, length:'long',  noun:'twig', w:264, rot:90, left:1478, top:775} ],
     steps:[
       { instr:'Tap the <span class="hl">long</span> twig.',  bubble:'Tap the<br><span class="hl">long</span> twig.', need:'long'  },
       { instr:'Tap the <span class="hl">short</span> twig.', bubble:'Tap the<br><span class="hl">short</span> twig.', need:'short' }
@@ -833,6 +839,7 @@ var LEVELS = [
       {src:ART.featherLong, length:'long',  noun:'feather', w:63, rot:8} ] }                     // ~290
 ];
 
+var MET_HOLD = 1100;          // beat between the meter filling and the next round
 var IDLE_MS = 8000;           // hand hint if the child does nothing at all
 var NUDGE_AFTER_WRONG = 1200; // hand hint delay after the SECOND mistake on a round
 var TYPE_MS = 60;       // typewriter speed per letter (slow, so kids can read)
@@ -905,7 +912,7 @@ function curLevel(){ return levels[order[cursor]]; }
 
 function buildPrompt(ask){
   var w = ask==='short' ? 'short' : 'long';
-  return 'Tap the <span class="hl">'+w+'</span> item!';
+  return 'Tap the <span class="hl">'+w+'</span> item.';
 }
 
 function clearItems(){
@@ -1001,7 +1008,7 @@ function renderRound(slow){
     var dChar = slow ? 850 : 160;
     revealTimers.push(setTimeout(function(){ mascot.classList.add('show'); }, dChar));
     revealTimers.push(setTimeout(function(){
-      guide('Let us start fixing the nest!', false, function(){
+      guide('Let us start fixing the nest.', false, function(){
         revealTimers.push(setTimeout(function(){
           panelEl.style.opacity='';   // hand the opacity back to the open animation
           panelEl.classList.remove('open'); void panelEl.offsetWidth; panelEl.classList.add('open');
@@ -1158,7 +1165,7 @@ function handleTap(item){
         flyPairToNest(item, function(){
           nestEl.style.transform='scale(.9)';    // the twigs made the nest bigger
           panelEl.style.opacity='0';             // empty board fades out — elephant hands over alone
-          guide('Now, it is your turn!', true, function(){
+          guide('Now, it is your turn.', true, function(){
             setTimeout(function(){ leafTransition(function(){ hideMascot(); nextRound(true); }); }, READ_PAUSE);
           });
         });
@@ -1189,11 +1196,14 @@ function handleTap(item){
     var cy=parseFloat(item.style.top)+item.offsetHeight/2;
     sfx.star(); popStar(cx,cy); sfx.correct();
     flyBird();
+    // Staggered finish: the piece lands and the nest grows → a beat later the
+    // meter climbs → then the next pair appears.
     flyToNest(item, 150, function(){
       addMaterial(item._def);
-      advanceBuild();           // nest grows + meter fills as the piece lands
+      growNest();
+      setTimeout(advanceMeter, 1000);          // …1s after the piece lands
+      setTimeout(nextRound, 1000+MET_HOLD);    // …and the next round after that
     });
-    setTimeout(nextRound, 2150);
   } else {
     // Wrong: shake + "Oops! That is not right." in the banner, then try again.
     // Shake + "Oops!". The pointing hand only reveals the answer after the
@@ -1339,10 +1349,17 @@ function addMaterial(def){
 }
 
 
-function advanceBuild(){
+/* The end-of-level beats are deliberately staggered so each one reads on its
+   own: (1) the piece lands and the nest grows, (2) a beat later the meter
+   fills, (3) then the next pair appears. */
+function buildFrac(){ return totalBuild ? Math.min(1, built/totalBuild) : 1; }
+var shineT=null;
+
+// Beat 1 — the piece has landed: the nest grows with its "bigger!" sound.
+function growNest(){
   built++;
-  playClip(nestClip);   // the nest grows — its little "bigger!" sound
-  var frac = totalBuild ? Math.min(1, built/totalBuild) : 1;
+  playClip(nestClip);
+  var frac = buildFrac();
   // The nest grows a bit bigger every level; the fuller art swaps in FULLY once
   // past the halfway point (holding it at partial opacity leaves a ghostly
   // "shadow" of the big nest hanging around the small one), and on the FINAL
@@ -1351,8 +1368,15 @@ function advanceBuild(){
   if(built>=totalBuild) nestDense.style.opacity = 1;               // final: dense nest
   nestEl.style.transform = 'scale(' + (NEST_MIN + (NEST_MAX-NEST_MIN)*frac).toFixed(3) + ')';
   nestInner.classList.remove('pop'); void nestInner.offsetWidth; nestInner.classList.add('pop');
-  progFill.style.height=(frac*100)+'%';
+}
+// Beat 2 — the meter climbs, with its own sound and a single shine sweep.
+function advanceMeter(){
+  progFill.style.height=(buildFrac()*100)+'%';
   progressEl.classList.remove('bump'); void progressEl.offsetWidth; progressEl.classList.add('bump');
+  progressEl.classList.remove('shine'); void progressEl.offsetWidth; progressEl.classList.add('shine');
+  clearTimeout(shineT);
+  shineT=setTimeout(function(){ progressEl.classList.remove('shine'); }, 1200);  // one sweep only
+  sfx.meter();
 }
 
 /* =================== Mascot cheer =================== */
